@@ -172,9 +172,9 @@ export function SummaryView({ summary }: SummaryViewProps) {
   // Format content for display (convert markdown-like syntax to HTML)
   const formatContent = (content: string) => {
     const lines = content.split('\n')
-    const elements: JSX.Element[] = []
+    const elements: React.ReactElement[] = []
     let inList = false
-    let listItems: JSX.Element[] = []
+    let listItems: React.ReactElement[] = []
     let inTable = false
     let tableRows: string[][] = []
 
