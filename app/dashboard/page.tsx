@@ -69,7 +69,7 @@ async function getChartData(): Promise<ChartDataPoint[]> {
   try {
     const sql = `
       SELECT
-        date_published::date as date,
+        TO_CHAR(date_published::date, 'YYYY-MM-DD') as date,
         COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
         COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
         COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral
@@ -77,7 +77,7 @@ async function getChartData(): Promise<ChartDataPoint[]> {
       WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
         AND status != 'OUTDATED' AND classification != 'OUTDATED'
       GROUP BY date_published::date
-      ORDER BY date;
+      ORDER BY date_published::date;
     `
 
     const result = await query(sql)
@@ -101,14 +101,14 @@ async function getActivityData(): Promise<ActivityDataPoint[]> {
   try {
     const sql = `
       SELECT
-        date_published::date as date,
+        TO_CHAR(date_published::date, 'YYYY-MM-DD') as date,
         COUNT(*) as published,
         COUNT(*) FILTER (WHERE classification_date IS NOT NULL) as classified
       FROM articles
       WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
         AND status != 'OUTDATED' AND classification != 'OUTDATED'
       GROUP BY date_published::date
-      ORDER BY date;
+      ORDER BY date_published::date;
     `
 
     const result = await query(sql)
