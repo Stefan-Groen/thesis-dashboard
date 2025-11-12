@@ -19,24 +19,39 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Article } from "@/lib/types"
+import { query } from "@/lib/db"
 
 /**
- * Fetch all articles from our API
+ * Fetch all articles directly from the database
  */
 async function getAllArticles(): Promise<Article[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const sql = `
+      SELECT
+        id, title, link, summary, source, classification, explanation, reasoning,
+        date_published, classification_date, status, starred
+      FROM articles
+      WHERE status != 'OUTDATED' AND classification != 'OUTDATED'
+      ORDER BY date_added DESC
+      LIMIT 10000;
+    `
 
-    const res = await fetch(`${baseUrl}/api/articles?limit=10000`, {
-      next: { revalidate: 30 }
-    })
+    const result = await query(sql)
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch articles')
-    }
-
-    const data = await res.json()
-    return data.articles
+    return result.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      link: row.link,
+      summary: row.summary,
+      source: row.source,
+      classification: row.classification,
+      explanation: row.explanation,
+      reasoning: row.reasoning,
+      date_published: row.date_published,
+      classification_date: row.classification_date,
+      status: row.status,
+      starred: row.starred,
+    }))
   } catch (error) {
     console.error('Error fetching articles:', error)
     return []

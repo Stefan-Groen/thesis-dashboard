@@ -24,23 +24,38 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import type { Stats, ChartDataPoint, ActivityDataPoint, Metrics } from "@/lib/types"
+import { query } from "@/lib/db"
 
 /**
- * Fetch dashboard statistics from our API
+ * Fetch dashboard statistics directly from database
  */
 async function getStats(): Promise<Stats> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const sql = `
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral,
+        COUNT(*) FILTER (WHERE classification IS NULL OR classification = '') as unclassified,
+        COUNT(*) FILTER (WHERE date_published >= CURRENT_DATE) as articles_today,
+        COUNT(*) FILTER (WHERE starred = true) as starred
+      FROM articles
+      WHERE status != 'OUTDATED' AND classification != 'OUTDATED';
+    `
 
-    const res = await fetch(`${baseUrl}/api/stats`, {
-      next: { revalidate: 30 }
-    })
+    const result = await query(sql)
+    const row = result.rows[0]
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch stats')
+    return {
+      total: parseInt(row.total) || 0,
+      threats: parseInt(row.threats) || 0,
+      opportunities: parseInt(row.opportunities) || 0,
+      neutral: parseInt(row.neutral) || 0,
+      unclassified: parseInt(row.unclassified) || 0,
+      articlesToday: parseInt(row.articles_today) || 0,
+      starred: parseInt(row.starred) || 0,
     }
-
-    return res.json()
   } catch (error) {
     console.error('Error fetching stats:', error)
     return { total: 0, threats: 0, opportunities: 0, neutral: 0, unclassified: 0, articlesToday: 0, starred: 0 }
@@ -48,21 +63,31 @@ async function getStats(): Promise<Stats> {
 }
 
 /**
- * Fetch chart data from our API
+ * Fetch chart data directly from database
  */
 async function getChartData(): Promise<ChartDataPoint[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const sql = `
+      SELECT
+        date_published::date as date,
+        COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral
+      FROM articles
+      WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
+        AND status != 'OUTDATED' AND classification != 'OUTDATED'
+      GROUP BY date_published::date
+      ORDER BY date;
+    `
 
-    const res = await fetch(`${baseUrl}/api/chart-data?days=90`, {
-      next: { revalidate: 30 }
-    })
+    const result = await query(sql)
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch chart data')
-    }
-
-    return res.json()
+    return result.rows.map((row) => ({
+      date: row.date,
+      threats: parseInt(row.threats) || 0,
+      opportunities: parseInt(row.opportunities) || 0,
+      neutral: parseInt(row.neutral) || 0,
+    }))
   } catch (error) {
     console.error('Error fetching chart data:', error)
     return []
@@ -70,21 +95,29 @@ async function getChartData(): Promise<ChartDataPoint[]> {
 }
 
 /**
- * Fetch activity data (published vs classified)
+ * Fetch activity data (published vs classified) directly from database
  */
 async function getActivityData(): Promise<ActivityDataPoint[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const sql = `
+      SELECT
+        date_published::date as date,
+        COUNT(*) as published,
+        COUNT(*) FILTER (WHERE classification_date IS NOT NULL) as classified
+      FROM articles
+      WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
+        AND status != 'OUTDATED' AND classification != 'OUTDATED'
+      GROUP BY date_published::date
+      ORDER BY date;
+    `
 
-    const res = await fetch(`${baseUrl}/api/activity-data?days=90`, {
-      next: { revalidate: 30 }
-    })
+    const result = await query(sql)
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch activity data')
-    }
-
-    return res.json()
+    return result.rows.map((row) => ({
+      date: row.date,
+      published: parseInt(row.published) || 0,
+      classified: parseInt(row.classified) || 0,
+    }))
   } catch (error) {
     console.error('Error fetching activity data:', error)
     return []
@@ -92,21 +125,49 @@ async function getActivityData(): Promise<ActivityDataPoint[]> {
 }
 
 /**
- * Fetch metrics (backlog, service level, own articles)
+ * Fetch metrics (backlog, service level, own articles) directly from database
  */
 async function getMetrics(): Promise<Metrics> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const backlogSql = `
+      SELECT COUNT(*) as count
+      FROM articles
+      WHERE classification IS NULL
+        AND status = 'active'
+        AND classification != 'OUTDATED' AND status != 'OUTDATED';
+    `
 
-    const res = await fetch(`${baseUrl}/api/metrics`, {
-      next: { revalidate: 30 }
-    })
+    const serviceLevelSql = `
+      SELECT
+        COUNT(*) FILTER (
+          WHERE classification_date - date_published <= INTERVAL '6 hours'
+        ) * 100.0 / NULLIF(COUNT(*), 0) as service_level,
+        COUNT(*) FILTER (
+          WHERE classification_date IS NOT NULL
+          AND date_published IS NOT NULL
+        ) as total_classified
+      FROM articles
+      WHERE status != 'OUTDATED' AND classification != 'OUTDATED';
+    `
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch metrics')
+    const ownArticlesSql = `
+      SELECT COUNT(*) as count
+      FROM articles
+      WHERE (source IN ('imported', 'uploaded') OR source LIKE 'uploaded by %')
+        AND classification != 'OUTDATED' AND status != 'OUTDATED';
+    `
+
+    const [backlogResult, serviceLevelResult, ownArticlesResult] = await Promise.all([
+      query(backlogSql),
+      query(serviceLevelSql),
+      query(ownArticlesSql)
+    ])
+
+    return {
+      backlog: parseInt(backlogResult.rows[0].count) || 0,
+      serviceLevel: parseFloat(serviceLevelResult.rows[0].service_level) || 0,
+      ownArticles: parseInt(ownArticlesResult.rows[0].count) || 0,
     }
-
-    return res.json()
   } catch (error) {
     console.error('Error fetching metrics:', error)
     return { backlog: 0, serviceLevel: 0, ownArticles: 0 }

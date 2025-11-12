@@ -19,24 +19,39 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Article } from "@/lib/types"
+import { query } from "@/lib/db"
 
 /**
- * Fetch threat articles from our API
+ * Fetch threat articles directly from the database
  */
 async function getThreatArticles(): Promise<Article[]> {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const sql = `
+      SELECT
+        id, title, link, summary, source, classification, explanation, reasoning,
+        date_published, classification_date, status, starred
+      FROM articles
+      WHERE classification = 'Threat' AND status != 'OUTDATED'
+      ORDER BY date_published DESC
+      LIMIT 1000;
+    `
 
-    const res = await fetch(`${baseUrl}/api/articles?classification=Threat&limit=1000`, {
-      next: { revalidate: 30 }
-    })
+    const result = await query(sql)
 
-    if (!res.ok) {
-      throw new Error('Failed to fetch threat articles')
-    }
-
-    const data = await res.json()
-    return data.articles
+    return result.rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      link: row.link,
+      summary: row.summary,
+      source: row.source,
+      classification: row.classification,
+      explanation: row.explanation,
+      reasoning: row.reasoning,
+      date_published: row.date_published,
+      classification_date: row.classification_date,
+      status: row.status,
+      starred: row.starred,
+    }))
   } catch (error) {
     console.error('Error fetching threat articles:', error)
     return []
