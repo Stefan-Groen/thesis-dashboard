@@ -184,6 +184,11 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
     addText(selectedArticle.classification || 'Unknown', 11)
     yPosition += 5
 
+    // Add Advice
+    addText('Advice', 12, true)
+    addText(selectedArticle.advice || 'No advice available', 11)
+    yPosition += 5
+
     // Add LLM Explanation
     if (selectedArticle.explanation) {
       addText('LLM Explanation', 12, true)
@@ -552,6 +557,14 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
             <div>
               <h3 className="text-sm font-semibold mb-2">Classification</h3>
               <ClassificationBadge classification={selectedArticle?.classification || ''} />
+            </div>
+
+            {/* Advice */}
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Advice</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {selectedArticle?.advice || 'No advice available'}
+              </p>
             </div>
 
             {/* Explanation */}

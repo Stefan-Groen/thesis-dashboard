@@ -38,6 +38,7 @@ export interface Article {
   classification: 'Threat' | 'Opportunity' | 'Neutral' | 'Error: Unknown' | ''
   explanation: string | null
   reasoning: string | null
+  advice: string | null
   date_published: string | null
   classification_date: string | null
   status: string
