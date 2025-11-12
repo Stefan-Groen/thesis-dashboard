@@ -4,6 +4,8 @@
  * Allows users to generate and view AI summaries of daily threats and opportunities
  */
 
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link"
 import { IconArrowLeft, IconFileText } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"

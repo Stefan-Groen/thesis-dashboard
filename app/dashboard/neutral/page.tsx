@@ -5,6 +5,8 @@
  * Uses Server Components to fetch data from the API.
  */
 
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link"
 import { IconArrowLeft, IconCircle } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"

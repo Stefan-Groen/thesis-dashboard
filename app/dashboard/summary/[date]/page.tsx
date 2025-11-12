@@ -4,6 +4,8 @@
  * Displays a specific summary with formatted content and PDF download option
  */
 
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { IconArrowLeft, IconDownload } from "@tabler/icons-react"

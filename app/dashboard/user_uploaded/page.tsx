@@ -4,6 +4,8 @@
  * Displays all articles uploaded by the user (source: imported or uploaded).
  */
 
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link"
 import { IconArrowLeft, IconUser } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"

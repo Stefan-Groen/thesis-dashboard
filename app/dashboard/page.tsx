@@ -5,6 +5,9 @@
  * and passes it to the client components.
  */
 
+// Force dynamic rendering (don't statically generate at build time)
+export const dynamic = 'force-dynamic'
+
 import Link from "next/link"
 import { IconGauge, IconUser, IconUpload } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"
