@@ -56,10 +56,11 @@ export default auth((req) => {
    * Define public paths (don't need login)
    *
    * These pages anyone can see without logging in:
+   * - / - The landing page
    * - /login - The login page itself
    * - /api/* - All API routes (they handle their own auth if needed)
    */
-  const isPublicPath = pathname === "/login" || pathname.startsWith("/api")
+  const isPublicPath = pathname === "/" || pathname === "/login" || pathname.startsWith("/api")
 
   /**
    * Handle different scenarios
