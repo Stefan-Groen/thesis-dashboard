@@ -30,7 +30,7 @@ async function getUserUploadedArticles(): Promise<Article[]> {
   try {
     const sql = `
       SELECT
-        id, title, link, summary, source, classification, explanation, reasoning,
+        id, title, link, summary, source, classification, explanation, reasoning, advice,
         date_published, classification_date, status, starred
       FROM articles
       WHERE (source IN ('imported', 'uploaded') OR source LIKE 'uploaded by %')

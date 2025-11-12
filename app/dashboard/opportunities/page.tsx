@@ -28,7 +28,7 @@ async function getOpportunityArticles(): Promise<Article[]> {
   try {
     const sql = `
       SELECT
-        id, title, link, summary, source, classification, explanation, reasoning,
+        id, title, link, summary, source, classification, explanation, reasoning, advice,
         date_published, classification_date, status, starred
       FROM articles
       WHERE classification = 'Opportunity' AND status != 'OUTDATED'
@@ -47,6 +47,7 @@ async function getOpportunityArticles(): Promise<Article[]> {
       classification: row.classification,
       explanation: row.explanation,
       reasoning: row.reasoning,
+      advice: row.advice,
       date_published: row.date_published,
       classification_date: row.classification_date,
       status: row.status,
