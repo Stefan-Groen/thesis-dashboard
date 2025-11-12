@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
         )::date AS date
       )
       SELECT
-        ds.date,
+        TO_CHAR(ds.date, 'YYYY-MM-DD') as date,
         COALESCE(COUNT(*) FILTER (WHERE a.classification = 'Threat'), 0) as threats,
         COALESCE(COUNT(*) FILTER (WHERE a.classification = 'Opportunity'), 0) as opportunities
       FROM date_series ds
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
 
     // Format the data for the chart
     const chartData = result.rows.map((row) => ({
-      date: row.date?.toISOString().split('T')[0] || '', // Format as YYYY-MM-DD
+      date: row.date || '', // Already formatted as YYYY-MM-DD string by PostgreSQL
       threats: Number(row.threats),
       opportunities: Number(row.opportunities),
     }))

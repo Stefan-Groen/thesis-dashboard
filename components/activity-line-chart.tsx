@@ -62,6 +62,12 @@ interface ActivityLineChartProps {
 export function ActivityLineChart({ data: activityData }: ActivityLineChartProps) {
   const isMobile = useIsMobile()
   const [timeRange, setTimeRange] = React.useState("7d")
+  const [mounted, setMounted] = React.useState(false)
+
+  // Prevent hydration mismatch by only rendering after mount
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   React.useEffect(() => {
     if (isMobile) {
@@ -90,6 +96,28 @@ export function ActivityLineChart({ data: activityData }: ActivityLineChartProps
       return date >= startDate
     })
   }, [activityData, timeRange])
+
+  // Show loading skeleton during SSR/hydration
+  if (!mounted) {
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle>Article Activity</CardTitle>
+          <CardDescription>
+            <span className="hidden @[540px]/card:block">
+              Daily article publishing and classification activity
+            </span>
+            <span className="@[540px]/card:hidden">Activity trends</span>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+          <div className="flex items-center justify-center h-[250px]">
+            <div className="animate-pulse text-muted-foreground">Loading chart...</div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="@container/card">

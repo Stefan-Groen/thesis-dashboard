@@ -34,11 +34,17 @@ import { Textarea } from "@/components/ui/textarea"
 export function UploadArticleDialog() {
   const [open, setOpen] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
   const [formData, setFormData] = React.useState({
     title: "",
     link: "",
     summary: "",
   })
+
+  // Prevent hydration mismatch by only rendering after mount
+  React.useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,6 +91,21 @@ export function UploadArticleDialog() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Show loading skeleton during SSR/hydration
+  if (!mounted) {
+    return (
+      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full">
+        <CardHeader className="flex flex-col items-center justify-center text-center h-full min-h-[200px]">
+          <IconUpload className="size-12 text-muted-foreground mb-4" />
+          <CardTitle className="text-xl">Upload Article</CardTitle>
+          <CardDescription>
+            Add your own article for classification
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (

@@ -8,7 +8,7 @@
 
 "use client"
 
-import { IconBrandGithub, IconBrandLinkedin, IconFileText } from "@tabler/icons-react"
+import { IconBrandLinkedin, IconFileText } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
@@ -37,19 +37,6 @@ export function SiteHeader() {
             >
               <IconFileText className="size-4 mr-2" />
               Thesis
-            </a>
-          </Button>
-
-          {/* GitHub Link */}
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <a
-              href="https://github.com/Stefan-Groen/thesis"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="dark:text-foreground"
-            >
-              <IconBrandGithub className="size-4 mr-2 text-gray-800 dark:text-gray-300" />
-              GitHub
             </a>
           </Button>
 

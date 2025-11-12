@@ -36,11 +36,11 @@ export async function GET() {
       WHERE status != 'OUTDATED' AND classification != 'OUTDATED';
     `
 
-    // Own Articles: Articles with source 'imported' or 'uploaded' (excluding OUTDATED)
+    // Own Articles: Articles with source 'imported', 'uploaded', or 'uploaded by {username}' (excluding OUTDATED)
     const ownArticlesSql = `
       SELECT COUNT(*) as count
       FROM articles
-      WHERE (source = 'imported' OR source = 'uploaded')
+      WHERE (source IN ('imported', 'uploaded') OR source LIKE 'uploaded by %')
       AND classification != 'OUTDATED' AND status != 'OUTDATED';
     `
 

@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         GROUP BY date_trunc('day', classification_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Amsterdam')
       )
       SELECT
-        ds.date,
+        TO_CHAR(ds.date, 'YYYY-MM-DD') as date,
         COALESCE(pc.count, 0) as published,
         COALESCE(cc.count, 0) as classified
       FROM date_series ds
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
 
     // Format the data for the chart
     const activityData = result.rows.map((row) => ({
-      date: row.date?.toISOString().split('T')[0] || '',
+      date: row.date || '', // Already formatted as YYYY-MM-DD string by PostgreSQL
       published: Number(row.published),
       classified: Number(row.classified),
     }))

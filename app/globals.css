@@ -120,3 +120,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Shimmer animation for AI button */
+@keyframes shimmer-slide {
+  to {
+    translate: calc(100cqw - 100%) 0;
+  }
+}
+
+@keyframes spin-around {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.animate-shimmer-slide {
+  animation: shimmer-slide var(--speed) ease-in-out infinite alternate;
+}
+
+.animate-spin-around {
+  animation: spin-around calc(var(--speed) * 2) linear infinite;
+}

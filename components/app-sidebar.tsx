@@ -11,6 +11,9 @@ import {
   IconStarFilled,
   IconUser,
   IconLogout,
+  IconFileText,
+  IconSettings,
+  IconSparkles as IconAI,
 } from "@tabler/icons-react"
 import { useSession, signOut } from "next-auth/react"
 
@@ -59,6 +62,11 @@ const data = {
       title: "Starred",
       url: "/dashboard/starred",
       icon: IconStarFilled,
+    },
+    {
+      title: "AI Overview",
+      url: "/dashboard/summary",
+      icon: IconAI,
     },
     {
       title: "Own Articles",
@@ -150,6 +158,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </DropdownMenuLabel>
 
                 <DropdownMenuSeparator />
+
+                <Link href="/dashboard/account">
+                  <DropdownMenuItem className="cursor-pointer">
+                    <IconSettings className="size-4 mr-2" />
+                    Account Settings
+                  </DropdownMenuItem>
+                </Link>
 
                 <DropdownMenuItem
                   className="text-red-600 dark:text-red-400 cursor-pointer"

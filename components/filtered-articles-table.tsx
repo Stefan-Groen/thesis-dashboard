@@ -14,7 +14,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { IconExternalLink, IconX, IconChevronUp, IconChevronDown, IconSelector, IconDownload, IconStar, IconStarFilled, IconSearch } from "@tabler/icons-react"
+import { IconExternalLink, IconX, IconChevronUp, IconChevronDown, IconSelector, IconDownload, IconStar, IconStarFilled, IconSearch, IconFilter } from "@tabler/icons-react"
 import type { Article } from "@/lib/types"
 import { jsPDF } from "jspdf"
 import { toast } from "sonner"
@@ -44,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface FilteredArticlesTableProps {
   articles: Article[]
@@ -61,6 +62,13 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
   const [sortField, setSortField] = React.useState<SortField | null>(null)
   const [sortDirection, setSortDirection] = React.useState<SortDirection>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
+
+  // Filter states
+  const [sourceFilter, setSourceFilter] = React.useState<string>('all')
+  const [statusFilter, setStatusFilter] = React.useState<string>('all')
+  const [dateFromFilter, setDateFromFilter] = React.useState<string>('')
+  const [dateToFilter, setDateToFilter] = React.useState<string>('')
+  const [showFilters, setShowFilters] = React.useState(false)
 
   // Track starred status locally for optimistic UI updates
   const [starredArticles, setStarredArticles] = React.useState<Record<number, boolean>>(() => {
@@ -184,6 +192,11 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
     addText(selectedArticle.classification || 'Unknown', 11)
     yPosition += 5
 
+    // Add Advice
+    addText('Advice', 12, true)
+    addText(selectedArticle.advice || 'No advice available', 11)
+    yPosition += 5
+
     // Add LLM Explanation
     if (selectedArticle.explanation) {
       addText('LLM Explanation', 12, true)
@@ -253,7 +266,24 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
     })
   }, [articles, sortField, sortDirection])
 
-  // Filter articles based on starred status and search term
+  // Extract unique sources and statuses for filter dropdowns
+  const uniqueSources = React.useMemo(() => {
+    const sources = new Set<string>()
+    articles.forEach(article => {
+      if (article.source) sources.add(article.source)
+    })
+    return Array.from(sources).sort()
+  }, [articles])
+
+  const uniqueStatuses = React.useMemo(() => {
+    const statuses = new Set<string>()
+    articles.forEach(article => {
+      if (article.status) statuses.add(article.status)
+    })
+    return Array.from(statuses).sort()
+  }, [articles])
+
+  // Filter articles based on starred status, search term, and filters
   const filteredArticles = React.useMemo(() => {
     let filtered = sortedArticles
 
@@ -270,8 +300,38 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
       )
     }
 
+    // Apply source filter
+    if (sourceFilter !== 'all') {
+      filtered = filtered.filter(article => article.source === sourceFilter)
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(article => article.status === statusFilter)
+    }
+
+    // Apply date range filter
+    if (dateFromFilter) {
+      const fromDate = new Date(dateFromFilter)
+      filtered = filtered.filter(article => {
+        if (!article.date_published) return false
+        const articleDate = new Date(article.date_published)
+        return articleDate >= fromDate
+      })
+    }
+
+    if (dateToFilter) {
+      const toDate = new Date(dateToFilter)
+      toDate.setHours(23, 59, 59, 999) // Include the entire day
+      filtered = filtered.filter(article => {
+        if (!article.date_published) return false
+        const articleDate = new Date(article.date_published)
+        return articleDate <= toDate
+      })
+    }
+
     return filtered
-  }, [sortedArticles, starredArticles, classification, searchTerm])
+  }, [sortedArticles, starredArticles, classification, searchTerm, sourceFilter, statusFilter, dateFromFilter, dateToFilter])
 
   // Pagination logic
   const totalPages = pageSize === -1 ? 1 : Math.ceil(filteredArticles.length / pageSize)
@@ -285,10 +345,21 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
     setCurrentPage(1)
   }
 
-  // Reset to first page when search term changes
+  // Reset to first page when search term or filters change
   React.useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm])
+  }, [searchTerm, sourceFilter, statusFilter, dateFromFilter, dateToFilter])
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSourceFilter('all')
+    setStatusFilter('all')
+    setDateFromFilter('')
+    setDateToFilter('')
+  }
+
+  // Check if any filters are active
+  const hasActiveFilters = sourceFilter !== 'all' || statusFilter !== 'all' || dateFromFilter !== '' || dateToFilter !== ''
 
   // Helper to render sort icon
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -306,7 +377,7 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
       <div className="space-y-4">
         {/* Search and Pagination controls - Top - Always visible */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          {/* Left side: Search box */}
+          {/* Left side: Search box and filter button */}
           <div className="flex items-center gap-2 order-1">
             <div className="relative w-full sm:w-64">
               <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -318,6 +389,18 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 className="pl-9"
               />
             </div>
+            <Button
+              variant={hasActiveFilters ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFilters(!showFilters)}
+              className="relative"
+            >
+              <IconFilter className="size-4 mr-2" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-2 flex h-2 w-2 rounded-full bg-white" />
+              )}
+            </Button>
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {filteredArticles.length} {filteredArticles.length === 1 ? 'article' : 'articles'}
             </span>
@@ -339,6 +422,97 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
             </Select>
           </div>
         </div>
+
+        {/* Filters - Collapsible */}
+        {showFilters && (
+          <div className="border rounded-lg p-4 bg-muted/30">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Filters</h3>
+                {hasActiveFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="h-8 text-xs"
+                  >
+                    Clear all filters
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Source Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="source-filter" className="text-xs text-muted-foreground">
+                    Source
+                  </Label>
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
+                    <SelectTrigger id="source-filter" className="h-9">
+                      <SelectValue placeholder="All sources" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All sources</SelectItem>
+                      {uniqueSources.map(source => (
+                        <SelectItem key={source} value={source}>
+                          {source}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="status-filter" className="text-xs text-muted-foreground">
+                    Status
+                  </Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status-filter" className="h-9">
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      {uniqueStatuses.map(status => (
+                        <SelectItem key={status} value={status}>
+                          {status}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Date From Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="date-from-filter" className="text-xs text-muted-foreground">
+                    Published from
+                  </Label>
+                  <Input
+                    id="date-from-filter"
+                    type="date"
+                    value={dateFromFilter}
+                    onChange={(e) => setDateFromFilter(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+
+                {/* Date To Filter */}
+                <div className="space-y-2">
+                  <Label htmlFor="date-to-filter" className="text-xs text-muted-foreground">
+                    Published to
+                  </Label>
+                  <Input
+                    id="date-to-filter"
+                    type="date"
+                    value={dateToFilter}
+                    onChange={(e) => setDateToFilter(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Show empty state if no filtered articles */}
         {filteredArticles.length === 0 ? (
@@ -552,6 +726,14 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
             <div>
               <h3 className="text-sm font-semibold mb-2">Classification</h3>
               <ClassificationBadge classification={selectedArticle?.classification || ''} />
+            </div>
+
+            {/* Advice */}
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Advice</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {selectedArticle?.advice || 'No advice available'}
+              </p>
             </div>
 
             {/* Explanation */}

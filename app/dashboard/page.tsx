@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link"
-import { IconClock, IconGauge, IconUser } from "@tabler/icons-react"
+import { IconGauge, IconUser, IconUpload } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ActivityLineChart } from "@/components/activity-line-chart"
@@ -155,64 +155,60 @@ export default async function Page() {
                 </div>
               </div>
 
-              {/* Row 4: Metric cards in a row - Backlog, Own Articles, Service Level, Upload (2 cols each) */}
+              {/* Row 4: Metric cards - Service Level (2 cols), Own Articles (2 cols), Upload (4 cols) */}
               <div className="px-4 lg:px-6">
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-                  {/* Backlog Card */}
-                  <Link href="/dashboard/backlog" className="block">
-                    <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-8">
+                  {/* Service Level Card - 2 cols wide */}
+                  <div className="lg:col-span-2">
+                    <Card className="h-full">
                       <CardHeader>
                         <div className="flex items-center justify-between">
-                          <IconClock className="size-8 text-orange-600" />
+                          <IconGauge className="size-8 text-blue-600" />
                           <Badge variant="outline" className="text-lg px-3 py-1">
-                            {metrics.backlog}
+                            {metrics.serviceLevel.toFixed(1)}%
                           </Badge>
                         </div>
-                        <CardTitle className="text-xl mt-2">Backlog</CardTitle>
+                        <CardTitle className="text-xl mt-2">Service Level</CardTitle>
                         <CardDescription>
-                          Articles still needed to be classified
+                          Articles classified within 6 hours
                         </CardDescription>
                       </CardHeader>
                     </Card>
-                  </Link>
+                  </div>
 
-                  {/* Own Articles Card */}
-                  <Link href="/dashboard/user_uploaded" className="block">
-                    <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <IconUser className="size-8 text-purple-600" />
-                          <Badge variant="outline" className="text-lg px-3 py-1">
-                            {metrics.ownArticles}
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-xl mt-2">Own Articles</CardTitle>
-                        <CardDescription>
-                          Articles added by you
-                        </CardDescription>
-                      </CardHeader>
-                    </Card>
-                  </Link>
+                  {/* Own Articles Card - 2 cols wide */}
+                  <div className="lg:col-span-2">
+                    <Link href="/dashboard/user_uploaded" className="block">
+                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <IconUser className="size-8 text-purple-600" />
+                            <Badge variant="outline" className="text-lg px-3 py-1">
+                              {metrics.ownArticles}
+                            </Badge>
+                          </div>
+                          <CardTitle className="text-xl mt-2">Own Articles</CardTitle>
+                          <CardDescription>
+                            Articles added by you
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    </Link>
+                  </div>
 
-                  {/* Service Level Card */}
-                  <Card className="h-full">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <IconGauge className="size-8 text-blue-600" />
-                        <Badge variant="outline" className="text-lg px-3 py-1">
-                          {metrics.serviceLevel.toFixed(1)}%
-                        </Badge>
-                      </div>
-                      <CardTitle className="text-xl mt-2">Service Level</CardTitle>
-                      <CardDescription>
-                        Articles classified within 6 hours
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
-
-                  {/* Upload Article Dialog */}
-                  <div className="h-full">
-                    <UploadArticleDialog />
+                  {/* Upload Article Card - 4 cols wide */}
+                  <div className="lg:col-span-4">
+                    <Link href="/dashboard/upload" className="block">
+                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full">
+                        <CardHeader className="flex flex-col items-center justify-center text-center h-full min-h-[200px]">
+                          <IconUpload className="size-12 text-muted-foreground mb-4" />
+                          <CardTitle className="text-xl">Upload Article</CardTitle>
+                          <CardDescription>
+                            Add your own article for classification
+                          </CardDescription>
+                        </CardHeader>
+                      </Card>
+                    </Link>
                   </div>
                 </div>
               </div>

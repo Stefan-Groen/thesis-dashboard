@@ -7,14 +7,26 @@
  *   title: string (required)
  *   link: string (optional - defaults to 'not uploaded')
  *   summary: string (required - the article text)
+ *   datePublished: string (optional - ISO date string)
  * }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
+import { auth } from '@/auth'
 import { query } from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.username) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
 
     // Validate required fields
@@ -35,7 +47,12 @@ export async function POST(request: NextRequest) {
     const title = body.title.trim()
     const link = body.link && body.link.trim() !== '' ? body.link.trim() : 'not uploaded'
     const summary = body.summary.trim()
-    const source = 'uploaded'
+    const source = `uploaded by ${session.user.username}` // Use username as source
+
+    // Parse date_published if provided, otherwise use NOW()
+    const datePublished = body.datePublished && body.datePublished.trim() !== ''
+      ? body.datePublished.trim()
+      : null
 
     // Insert article into database
     const sql = `
@@ -48,17 +65,23 @@ export async function POST(request: NextRequest) {
         date_published,
         date_added
       )
-      VALUES ($1, $2, $3, $4, 'PENDING', NOW(), NOW())
+      VALUES ($1, $2, $3, $4, 'PENDING', COALESCE($5::timestamp, NOW()), NOW())
       RETURNING id, title;
     `
 
-    const result = await query(sql, [title, link, summary, source])
+    const result = await query(sql, [title, link, summary, source, datePublished])
 
     if (result.rows.length === 0) {
       throw new Error('Failed to insert article')
     }
 
     const article = result.rows[0]
+
+    // Invalidate cache for all pages that show article data
+    // This forces them to refetch fresh data on next request
+    revalidatePath('/dashboard')
+    revalidatePath('/dashboard/articles')
+    revalidatePath('/dashboard/user_uploaded')
 
     return NextResponse.json({
       success: true,

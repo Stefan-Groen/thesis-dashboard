@@ -31,7 +31,7 @@ async function getUserUploadedArticles(): Promise<Article[]> {
         id, title, link, summary, source, classification, explanation, reasoning,
         date_published, classification_date, status, starred
       FROM articles
-      WHERE source IN ('imported', 'uploaded')
+      WHERE (source IN ('imported', 'uploaded') OR source LIKE 'uploaded by %')
       AND classification != 'OUTDATED' AND status != 'OUTDATED'
       ORDER BY date_added DESC
       LIMIT 1000;
