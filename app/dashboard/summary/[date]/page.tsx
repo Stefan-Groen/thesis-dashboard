@@ -17,6 +17,7 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
+import { query } from "@/lib/db"
 
 interface SummaryPageProps {
   params: Promise<{
@@ -26,16 +27,21 @@ interface SummaryPageProps {
 
 async function getSummary(date: string) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/summaries?date=${date}`, {
-      cache: 'no-store'
-    })
+    const sql = `
+      SELECT id, date, version, content, created_at as "createdAt", updated_at as "updatedAt"
+      FROM summaries
+      WHERE date = $1
+      ORDER BY version DESC
+      LIMIT 1;
+    `
 
-    if (!res.ok) {
+    const result = await query(sql, [date])
+
+    if (result.rows.length === 0) {
       return null
     }
 
-    return await res.json()
+    return result.rows[0]
   } catch (error) {
     console.error('Error fetching summary:', error)
     return null
