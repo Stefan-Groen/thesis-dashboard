@@ -14,7 +14,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { IconExternalLink, IconX, IconChevronUp, IconChevronDown, IconSelector, IconDownload, IconStar, IconStarFilled, IconSearch, IconFilter } from "@tabler/icons-react"
+import { IconExternalLink, IconX, IconChevronUp, IconChevronDown, IconSelector, IconDownload, IconStar, IconStarFilled, IconSearch, IconFilter, IconFileText, IconTrash } from "@tabler/icons-react"
 import type { Article } from "@/lib/types"
 import { jsPDF } from "jspdf"
 import { toast } from "sonner"
@@ -49,14 +49,16 @@ import { Label } from "@/components/ui/label"
 interface FilteredArticlesTableProps {
   articles: Article[]
   classification?: 'Threat' | 'Opportunity' | 'Neutral' | 'All' | 'Backlog' | 'User Uploaded' | 'Starred'
+  showDelete?: boolean
 }
 
 type SortField = 'classification' | 'title' | 'date_published' | 'source'
 type SortDirection = 'asc' | 'desc' | null
 
-export function FilteredArticlesTable({ articles, classification = 'All' }: FilteredArticlesTableProps) {
+export function FilteredArticlesTable({ articles, classification = 'All', showDelete = false }: FilteredArticlesTableProps) {
   const router = useRouter()
   const [selectedArticle, setSelectedArticle] = React.useState<Article | null>(null)
+  const [showPdfTextModal, setShowPdfTextModal] = React.useState(false)
   const [currentPage, setCurrentPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(30)
   const [sortField, setSortField] = React.useState<SortField | null>(null)
@@ -132,6 +134,34 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
       }))
       toast.error('Failed to update article')
       console.error('Error toggling star:', error)
+    }
+  }
+
+  // Delete article handler
+  const handleDeleteArticle = async (articleId: number, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent row click
+
+    if (!confirm('Are you sure you want to delete this article? This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/articles/${articleId}`, {
+        method: 'DELETE'
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success('Article deleted successfully')
+        // Refresh the page to update the article list
+        router.refresh()
+      } else {
+        toast.error(data.error || 'Failed to delete article')
+      }
+    } catch (error) {
+      console.error('Error deleting article:', error)
+      toast.error('Failed to delete article')
     }
   }
 
@@ -578,6 +608,7 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                   </button>
                 </TableHead>
                 <TableHead className="w-16">Link</TableHead>
+                {showDelete && <TableHead className="w-16">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -650,6 +681,21 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                     </Link>
                   </Button>
                 </TableCell>
+
+                {/* Delete Button - Only shown when showDelete is true */}
+                {showDelete && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={(e) => handleDeleteArticle(article.id, e)}
+                      title="Delete article"
+                    >
+                      <IconTrash className="size-4" />
+                    </Button>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>
@@ -755,16 +801,6 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 </p>
               </div>
             )}
-
-            {/* PDF Text Content - Only show for PDF uploads */}
-            {selectedArticle?.link?.startsWith('pdf-upload-') && selectedArticle?.summary && (
-              <div>
-                <h3 className="text-sm font-semibold mb-2">Extracted PDF Text</h3>
-                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto border rounded-md p-4 bg-muted/30">
-                  {selectedArticle.summary}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Sticky bottom section - Source and Link */}
@@ -779,8 +815,17 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 <IconDownload className="size-4 mr-2" />
                 PDF
               </Button>
-              {/* Only show external link button for non-PDF articles */}
-              {!selectedArticle?.link?.startsWith('pdf-upload-') && (
+              {/* Show different button based on article type */}
+              {selectedArticle?.link?.startsWith('pdf-upload-') ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPdfTextModal(true)}
+                >
+                  <IconFileText className="size-4 mr-2" />
+                  View PDF Text
+                </Button>
+              ) : (
                 <Button variant="outline" size="sm" asChild>
                   <Link
                     href={selectedArticle?.link || '#'}
@@ -793,6 +838,34 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 </Button>
               )}
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Text Modal */}
+      <Dialog open={showPdfTextModal} onOpenChange={setShowPdfTextModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0">
+          <div className="px-6 pt-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl pr-8">
+                PDF Text: {selectedArticle?.title}
+              </DialogTitle>
+              <DialogDescription>
+                Extracted text from the uploaded PDF document
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="text-sm leading-relaxed whitespace-pre-wrap border rounded-md p-4 bg-muted/30 font-mono">
+              {selectedArticle?.summary || 'No text available'}
+            </div>
+          </div>
+
+          <div className="border-t bg-background px-6 py-4 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowPdfTextModal(false)}>
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -97,7 +97,7 @@ export default async function UserUploadedPage() {
 
               {/* Filtered Table */}
               <div className="px-4 lg:px-6">
-                <FilteredArticlesTable articles={articles} classification="User Uploaded" />
+                <FilteredArticlesTable articles={articles} classification="User Uploaded" showDelete={true} />
               </div>
             </div>
           </div>
