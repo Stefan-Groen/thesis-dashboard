@@ -28,9 +28,9 @@ interface SummaryPageProps {
 async function getSummary(date: string) {
   try {
     const sql = `
-      SELECT id, date, version, content, created_at as "createdAt", updated_at as "updatedAt"
+      SELECT id, summary_date::text as date, version, content, created_at as "createdAt", updated_at as "updatedAt"
       FROM summaries
-      WHERE date = $1
+      WHERE summary_date = $1
       ORDER BY version DESC
       LIMIT 1;
     `
