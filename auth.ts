@@ -152,6 +152,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 
   /**
+   * COOKIES CONFIGURATION
+   *
+   * Configure cookie settings for production (Vercel)
+   * This fixes issues with session persistence on hosted environments
+   */
+  cookies: {
+    sessionToken: {
+      name: `${process.env.NODE_ENV === 'production' ? '__Secure-' : ''}next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+      },
+    },
+  },
+
+  /**
+   * TRUST HOST
+   *
+   * Trust the host header in production (required for Vercel)
+   */
+  trustHost: true,
+
+  /**
    * CALLBACKS
    *
    * Callbacks are functions that run at specific points in the auth flow.
