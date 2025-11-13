@@ -34,8 +34,10 @@ export function LoginForm() {
       if (result?.error) {
         setError("Invalid username or password. Please try again.")
         console.log("❌ Login failed:", result.error)
+        setIsLoading(false)
       } else if (result?.ok) {
         console.log("✅ Login successful! Redirecting to dashboard...")
+        // Keep spinner showing during redirect
         router.push(callbackUrl)
         router.refresh()
       }
@@ -43,7 +45,6 @@ export function LoginForm() {
     } catch (err) {
       console.error("❌ Login error:", err)
       setError("An unexpected error occurred. Please try again.")
-    } finally {
       setIsLoading(false)
     }
   }
@@ -122,12 +123,6 @@ export function LoginForm() {
             </Button>
           </form>
         </CardContent>
-
-        <CardFooter className="flex flex-col space-y-2">
-          <div className="text-xs text-center text-muted-foreground">
-            For internal use only. Authorized personnel only.
-          </div>
-        </CardFooter>
       </Card>
     </div>
   )

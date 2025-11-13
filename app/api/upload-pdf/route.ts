@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
 
     // Use filename (without extension) as title
     const title = file.name.replace('.pdf', '').replace('.PDF', '')
-    const link = 'PDF Upload'
+    // Create unique link for each PDF upload using timestamp and filename
+    const link = `pdf-upload-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
     const summary = extractedText
     const source = `uploaded by ${session.user.username}`
 
