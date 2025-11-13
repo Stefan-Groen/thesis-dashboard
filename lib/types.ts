@@ -45,11 +45,12 @@ export interface Article {
   starred: boolean
 }
 
-// Chart data point (for bar chart - only threats and opportunities)
+// Chart data point (for bar chart - threats, opportunities, and neutral)
 export interface ChartDataPoint {
   date: string
   threats: number
   opportunities: number
+  neutral: number
 }
 
 // Activity data point (for line chart - published vs classified)
