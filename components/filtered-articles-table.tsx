@@ -755,6 +755,16 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 </p>
               </div>
             )}
+
+            {/* PDF Text Content - Only show for PDF uploads */}
+            {selectedArticle?.link?.startsWith('pdf-upload-') && selectedArticle?.summary && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Extracted PDF Text</h3>
+                <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto border rounded-md p-4 bg-muted/30">
+                  {selectedArticle.summary}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sticky bottom section - Source and Link */}
@@ -769,16 +779,19 @@ export function FilteredArticlesTable({ articles, classification = 'All' }: Filt
                 <IconDownload className="size-4 mr-2" />
                 PDF
               </Button>
-              <Button variant="outline" size="sm" asChild>
-                <Link
-                  href={selectedArticle?.link || '#'}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <IconExternalLink className="size-4 mr-2" />
-                  Read Full Article
-                </Link>
-              </Button>
+              {/* Only show external link button for non-PDF articles */}
+              {!selectedArticle?.link?.startsWith('pdf-upload-') && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link
+                    href={selectedArticle?.link || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconExternalLink className="size-4 mr-2" />
+                    Read Full Article
+                  </Link>
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
