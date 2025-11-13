@@ -37,9 +37,8 @@ export function LoginForm() {
         setIsLoading(false)
       } else if (result?.ok) {
         console.log("✅ Login successful! Redirecting to dashboard...")
-        // Keep spinner showing during redirect
-        router.push(callbackUrl)
-        router.refresh()
+        // Use window.location for hard redirect to ensure session is properly established
+        window.location.href = callbackUrl
       }
 
     } catch (err) {

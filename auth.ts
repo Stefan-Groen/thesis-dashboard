@@ -23,6 +23,14 @@ import { query } from "@/lib/db"
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
   /**
+   * SECRET
+   *
+   * Secret key for encrypting tokens and cookies
+   * This is required for production
+   */
+  secret: process.env.AUTH_SECRET,
+
+  /**
    * PROVIDERS
    *
    * Providers are different ways users can log in.
@@ -152,6 +160,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
 
   /**
+   * USE SECURE COOKIES
+   *
+   * Automatically use secure cookies in production
+   */
+  useSecureCookies: process.env.NODE_ENV === 'production',
+
+  /**
    * COOKIES CONFIGURATION
    *
    * Configure cookie settings for production (Vercel)
@@ -165,6 +180,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         sameSite: 'lax',
         path: '/',
         secure: process.env.NODE_ENV === 'production',
+        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost',
       },
     },
   },
