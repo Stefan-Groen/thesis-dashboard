@@ -1,58 +1,72 @@
 /**
  * API Route: /api/stats
  *
- * Returns dashboard statistics:
+ * Returns dashboard statistics FOR THE LOGGED-IN USER'S ORGANIZATION:
  * - Total number of articles
  * - Number of articles classified as "Threat"
  * - Number of articles classified as "Opportunity"
  * - Number of articles classified as "Neutral"
  *
- * Python Flask equivalent:
- * ```python
- * @app.route('/api/stats')
- * def get_stats():
- *     cursor.execute("SELECT COUNT(*) FROM articles")
- *     total = cursor.fetchone()[0]
- *     return jsonify({'total': total, ...})
- * ```
+ * MULTI-TENANT: Filters statistics by organization_id
  */
 
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { auth } from '@/auth'
 
 /**
  * GET /api/stats
- *
- * Next.js convention: Export an async function named after the HTTP method
- * - export async function GET() {...}  // Handles GET requests
- * - export async function POST() {...}  // Handles POST requests
- * - export async function PUT() {...}   // Handles PUT requests, etc.
+ * Returns statistics for the logged-in user's organization only
  */
 export async function GET() {
   try {
+    // Get the logged-in user's session
+    const session = await auth()
+
+    // Check if user is authenticated
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in' },
+        { status: 401 }
+      )
+    }
+
+    // Get the user's organization ID
+    const organizationId = session.user.organizationId
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'User is not associated with an organization' },
+        { status: 403 }
+      )
+    }
+
     // SQL query to get counts by classification
-    // Excludes OUTDATED articles (previously SENT articles that are no longer relevant)
+    // MULTI-TENANT: Join with article_classifications and filter by organization_id
     const sql = `
       SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
-        COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
-        COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral,
-        COUNT(*) FILTER (WHERE classification IN ('Error: Unknown', '')) as unclassified,
-        COUNT(*) FILTER (WHERE DATE(date_published) = CURRENT_DATE) as articles_today,
-        COUNT(*) FILTER (WHERE starred = true) as starred
-      FROM articles
-      WHERE classification != 'OUTDATED' AND status != 'OUTDATED';
+        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+        COUNT(*) FILTER (WHERE ac.classification IN ('Error: Unknown', '')) as unclassified,
+        COUNT(*) FILTER (WHERE DATE(a.date_published) = CURRENT_DATE) as articles_today,
+        COUNT(*) FILTER (WHERE ac.starred = true) as starred
+      FROM articles a
+      INNER JOIN article_classifications ac
+        ON a.id = ac.article_id
+      WHERE ac.organization_id = $1
+        AND ac.classification != 'OUTDATED'
+        AND ac.status != 'OUTDATED';
     `
 
-    // Execute the query (like cursor.execute() in Python)
-    const result = await query(sql)
+    // Execute the query with organization_id
+    const result = await query(sql, [organizationId])
 
     // Get the first row (there's only one row with the counts)
     const stats = result.rows[0]
 
     // Convert BigInt to Number (PostgreSQL COUNT returns BigInt)
-    // JavaScript doesn't have a built-in BigInt JSON serialization
     const formattedStats = {
       total: Number(stats.total),
       threats: Number(stats.threats),
@@ -63,15 +77,10 @@ export async function GET() {
       starred: Number(stats.starred),
     }
 
-    // Return JSON response (like jsonify() in Flask)
-    // NextResponse.json() automatically sets Content-Type: application/json
     return NextResponse.json(formattedStats)
 
   } catch (error) {
-    // Error handling (like try/except in Python)
     console.error('Error fetching stats:', error)
-
-    // Return a 500 error response
     return NextResponse.json(
       { error: 'Failed to fetch statistics' },
       { status: 500 }

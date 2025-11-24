@@ -28,6 +28,22 @@ export interface Stats {
   starred: number
 }
 
+// Criticality score details (breakdown of individual scores)
+export interface CriticalityScoreDetail {
+  correctness_factual_soundness: number
+  relevance_alignment: number
+  reasoning_transparency: number
+  practical_usefulness_actionability: number
+  clarity_communication_quality: number
+  safety_bias_appropriateness: number
+  correctness_factual_soundness_explanation: string | null
+  relevance_alignment_explanation: string | null
+  reasoning_transparency_explanation: string | null
+  practical_usefulness_actionability_explanation: string | null
+  clarity_communication_quality_explanation: string | null
+  safety_bias_appropriateness_explanation: string | null
+}
+
 // Article from database
 export interface Article {
   id: number
@@ -43,6 +59,10 @@ export interface Article {
   classification_date: string | null
   status: string
   starred: boolean
+  criti_score: number | null
+  criti_explanation: string | null
+  criti_status: string
+  criticality_detail: CriticalityScoreDetail | null
 }
 
 // Chart data point (for bar chart - threats, opportunities, and neutral)

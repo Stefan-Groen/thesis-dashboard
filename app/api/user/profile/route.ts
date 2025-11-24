@@ -20,10 +20,12 @@ export async function GET() {
       )
     }
 
+    // MULTI-TENANT: Join with organizations table to get organization name
     const result = await query(
-      `SELECT username, full_name, email, organization
-       FROM users
-       WHERE id = $1`,
+      `SELECT u.username, u.full_name, u.email, u.organization_id, o.name as organization_name
+       FROM users u
+       LEFT JOIN organizations o ON u.organization_id = o.id
+       WHERE u.id = $1`,
       [session.user.id]
     )
 
@@ -40,7 +42,8 @@ export async function GET() {
       username: user.username,
       fullName: user.full_name,
       email: user.email,
-      organization: user.organization,
+      organizationId: user.organization_id,
+      organizationName: user.organization_name,
     })
 
   } catch (error) {
@@ -63,7 +66,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const { fullName, email, organization } = await request.json()
+    const { fullName, email } = await request.json()
 
     // Validate required fields
     if (!fullName || !email) {
@@ -82,14 +85,13 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    // Update user profile
+    // MULTI-TENANT: Update user profile (organization_id cannot be changed by users)
     await query(
       `UPDATE users
        SET full_name = $1,
-           email = $2,
-           organization = $3
-       WHERE id = $4`,
-      [fullName, email, organization || null, session.user.id]
+           email = $2
+       WHERE id = $3`,
+      [fullName, email, session.user.id]
     )
 
     return NextResponse.json({

@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Article Classifier",
+  title: "SignalShark",
   description: "AI-powered article classification dashboard for threat and opportunity analysis",
 };
 

@@ -1,37 +1,43 @@
 /**
  * API Route: /api/articles/[id]/star
  *
- * Toggles the starred status of an article.
+ * Toggles the starred status of an article FOR THE USER'S ORGANIZATION.
  *
- * Methods:
- * - PATCH: Toggle starred status for the specified article
- *
- * Example usage:
- * - PATCH /api/articles/123/star
- *
- * Python Flask equivalent:
- * ```python
- * @app.route('/api/articles/<int:id>/star', methods=['PATCH'])
- * def toggle_star(id):
- *     cursor.execute(
- *         "UPDATE articles SET starred = NOT starred WHERE id = %s RETURNING starred",
- *         (id,)
- *     )
- *     result = cursor.fetchone()
- *     conn.commit()
- *     return jsonify({'starred': result['starred']})
- * ```
+ * MULTI-TENANT: Updates starred status in article_classifications table
+ * Only allows starring articles that belong to the user's organization
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { query } from '@/lib/db'
+import { auth } from '@/auth'
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Get the logged-in user's session
+    const session = await auth()
+
+    // Check if user is authenticated
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in' },
+        { status: 401 }
+      )
+    }
+
+    // Get the user's organization ID
+    const organizationId = session.user.organizationId
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'User is not associated with an organization' },
+        { status: 403 }
+      )
+    }
+
     const { id } = await params
 
     // Validate that the ID is a valid number
@@ -43,26 +49,25 @@ export async function PATCH(
       )
     }
 
-    // Toggle the starred status
+    // MULTI-TENANT: Toggle starred in article_classifications for this organization
     const sql = `
-      UPDATE articles
+      UPDATE article_classifications
       SET starred = NOT starred
-      WHERE id = $1
+      WHERE article_id = $1 AND organization_id = $2
       RETURNING starred
     `
 
-    const result = await query(sql, [articleId])
+    const result = await query(sql, [articleId, organizationId])
 
-    // Check if article exists
+    // Check if classification exists for this organization
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Article not found' },
+        { error: 'Article not found or not accessible' },
         { status: 404 }
       )
     }
 
     // Invalidate cache for all pages that show article data
-    // This forces them to refetch fresh data on next request
     revalidatePath('/dashboard')
     revalidatePath('/dashboard/starred')
     revalidatePath('/dashboard/articles')

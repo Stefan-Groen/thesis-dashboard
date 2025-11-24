@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { auth } from '@/auth'
 
 // Helper function to format dates safely
 const formatDate = (dateValue: any): string => {
@@ -31,19 +32,28 @@ const formatDate = (dateValue: any): string => {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
 
     if (date) {
-      // Fetch specific summary by date (latest version only)
+      // Fetch specific summary by date (latest version only) for this organization
       // Cast date to text to avoid timezone issues
       const result = await query(
         `SELECT id, summary_date::text as summary_date, version, content, created_at, updated_at
          FROM summaries
-         WHERE summary_date = $1
+         WHERE summary_date = $1 AND organization_id = $2
          ORDER BY version DESC
          LIMIT 1`,
-        [date]
+        [date, session.user.organizationId]
       )
 
       if (result.rows.length === 0) {
@@ -64,13 +74,15 @@ export async function GET(request: NextRequest) {
         updatedAt: summary.updated_at
       })
     } else {
-      // Fetch all summaries with all versions, most recent first
+      // Fetch all summaries with all versions for this organization, most recent first
       // Cast date to text to avoid timezone issues
       const result = await query(
         `SELECT id, summary_date::text as summary_date, version, content, created_at, updated_at
          FROM summaries
+         WHERE organization_id = $1
          ORDER BY summary_date DESC, version DESC
-         LIMIT 100`
+         LIMIT 100`,
+        [session.user.organizationId]
       )
 
       const summaries = result.rows.map(row => {

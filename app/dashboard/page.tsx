@@ -25,26 +25,37 @@ import {
 } from "@/components/ui/sidebar"
 import type { Stats, ChartDataPoint, ActivityDataPoint, Metrics } from "@/lib/types"
 import { query } from "@/lib/db"
+import { auth } from "@/auth"
 
 /**
  * Fetch dashboard statistics directly from database
+ * MULTI-TENANT: Filters by organization_id
  */
 async function getStats(): Promise<Stats> {
   try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return { total: 0, threats: 0, opportunities: 0, neutral: 0, unclassified: 0, articlesToday: 0, starred: 0 }
+    }
+
     const sql = `
       SELECT
         COUNT(*) as total,
-        COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
-        COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
-        COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral,
-        COUNT(*) FILTER (WHERE classification IS NULL OR classification = '') as unclassified,
-        COUNT(*) FILTER (WHERE date_published >= CURRENT_DATE) as articles_today,
-        COUNT(*) FILTER (WHERE starred = true) as starred
-      FROM articles
-      WHERE status != 'OUTDATED' AND classification != 'OUTDATED';
+        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+        COUNT(*) FILTER (WHERE ac.classification IS NULL OR ac.classification = '' OR ac.status = 'PENDING') as unclassified,
+        COUNT(*) FILTER (WHERE DATE(a.date_published) = CURRENT_DATE) as articles_today,
+        COUNT(*) FILTER (WHERE ac.starred = true) as starred
+      FROM articles a
+      LEFT JOIN article_classifications ac ON a.id = ac.article_id AND ac.organization_id = $1
+      INNER JOIN organizations o ON o.id = $1
+      WHERE (ac.status IS NULL OR ac.status != 'OUTDATED')
+        AND (ac.classification IS NULL OR ac.classification != 'OUTDATED')
+        AND a.date_published >= o.created_at;
     `
 
-    const result = await query(sql)
+    const result = await query(sql, [session.user.organizationId])
     const row = result.rows[0]
 
     return {
@@ -64,23 +75,34 @@ async function getStats(): Promise<Stats> {
 
 /**
  * Fetch chart data directly from database
+ * MULTI-TENANT: Filters by organization_id
  */
 async function getChartData(): Promise<ChartDataPoint[]> {
   try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return []
+    }
+
     const sql = `
       SELECT
-        TO_CHAR(date_published::date, 'YYYY-MM-DD') as date,
-        COUNT(*) FILTER (WHERE classification = 'Threat') as threats,
-        COUNT(*) FILTER (WHERE classification = 'Opportunity') as opportunities,
-        COUNT(*) FILTER (WHERE classification = 'Neutral') as neutral
-      FROM articles
-      WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
-        AND status != 'OUTDATED' AND classification != 'OUTDATED'
-      GROUP BY date_published::date
-      ORDER BY date_published::date;
+        TO_CHAR(a.date_published::date, 'YYYY-MM-DD') as date,
+        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN organizations o ON o.id = $1
+      WHERE a.date_published >= CURRENT_DATE - INTERVAL '90 days'
+        AND a.date_published >= o.created_at
+        AND ac.organization_id = $1
+        AND ac.status != 'OUTDATED'
+        AND ac.classification != 'OUTDATED'
+      GROUP BY a.date_published::date
+      ORDER BY a.date_published::date;
     `
 
-    const result = await query(sql)
+    const result = await query(sql, [session.user.organizationId])
 
     return result.rows.map((row) => ({
       date: row.date,
@@ -96,22 +118,62 @@ async function getChartData(): Promise<ChartDataPoint[]> {
 
 /**
  * Fetch activity data (published vs classified) directly from database
+ * MULTI-TENANT: Shows all published articles vs classified articles for this organization
  */
 async function getActivityData(): Promise<ActivityDataPoint[]> {
   try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return []
+    }
+
     const sql = `
+      WITH org_info AS (
+        SELECT created_at FROM organizations WHERE id = $1
+      ),
+      date_series AS (
+        SELECT generate_series(
+          CURRENT_DATE - INTERVAL '90 days',
+          CURRENT_DATE,
+          '1 day'::interval
+        )::date AS date
+      ),
+      published_counts AS (
+        SELECT
+          a.date_published::date as date,
+          COUNT(DISTINCT a.id) as count
+        FROM articles a
+        CROSS JOIN org_info o
+        WHERE
+          a.date_published >= CURRENT_DATE - INTERVAL '90 days'
+          AND a.date_published >= o.created_at
+          AND a.date_published IS NOT NULL
+        GROUP BY a.date_published::date
+      ),
+      classified_counts AS (
+        SELECT
+          ac.classification_date::date as date,
+          COUNT(*) as count
+        FROM article_classifications ac
+        WHERE
+          ac.organization_id = $1
+          AND ac.classification_date >= CURRENT_DATE - INTERVAL '90 days'
+          AND ac.classification_date IS NOT NULL
+          AND ac.classification != 'OUTDATED'
+          AND ac.status != 'OUTDATED'
+        GROUP BY ac.classification_date::date
+      )
       SELECT
-        TO_CHAR(date_published::date, 'YYYY-MM-DD') as date,
-        COUNT(*) as published,
-        COUNT(*) FILTER (WHERE classification_date IS NOT NULL) as classified
-      FROM articles
-      WHERE date_published >= CURRENT_DATE - INTERVAL '90 days'
-        AND status != 'OUTDATED' AND classification != 'OUTDATED'
-      GROUP BY date_published::date
-      ORDER BY date_published::date;
+        TO_CHAR(ds.date, 'YYYY-MM-DD') as date,
+        COALESCE(pc.count, 0) as published,
+        COALESCE(cc.count, 0) as classified
+      FROM date_series ds
+      LEFT JOIN published_counts pc ON ds.date = pc.date
+      LEFT JOIN classified_counts cc ON ds.date = cc.date
+      ORDER BY ds.date ASC;
     `
 
-    const result = await query(sql)
+    const result = await query(sql, [session.user.organizationId])
 
     return result.rows.map((row) => ({
       date: row.date,
@@ -126,41 +188,60 @@ async function getActivityData(): Promise<ActivityDataPoint[]> {
 
 /**
  * Fetch metrics (backlog, service level, own articles) directly from database
+ * MULTI-TENANT: Filters by organization_id
  */
 async function getMetrics(): Promise<Metrics> {
   try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return { backlog: 0, serviceLevel: 0, ownArticles: 0 }
+    }
+
+    const organizationId = session.user.organizationId
+
     const backlogSql = `
       SELECT COUNT(*) as count
-      FROM articles
-      WHERE classification IS NULL
-        AND status = 'active'
-        AND classification != 'OUTDATED' AND status != 'OUTDATED';
+      FROM articles a
+      LEFT JOIN article_classifications ac ON a.id = ac.article_id AND ac.organization_id = $1
+      INNER JOIN organizations o ON o.id = $1
+      WHERE a.date_published >= o.created_at
+        AND (ac.id IS NULL OR ac.status = 'PENDING');
     `
 
     const serviceLevelSql = `
       SELECT
         COUNT(*) FILTER (
-          WHERE classification_date - date_published <= INTERVAL '6 hours'
+          WHERE ac.classification_date - a.date_published <= INTERVAL '6 hours'
         ) * 100.0 / NULLIF(COUNT(*), 0) as service_level,
         COUNT(*) FILTER (
-          WHERE classification_date IS NOT NULL
-          AND date_published IS NOT NULL
+          WHERE ac.classification_date IS NOT NULL
+          AND a.date_published IS NOT NULL
         ) as total_classified
-      FROM articles
-      WHERE status != 'OUTDATED' AND classification != 'OUTDATED';
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN organizations o ON o.id = $1
+      WHERE ac.organization_id = $1
+        AND a.date_published >= o.created_at
+        AND ac.status != 'OUTDATED'
+        AND ac.classification != 'OUTDATED';
     `
 
     const ownArticlesSql = `
       SELECT COUNT(*) as count
-      FROM articles
-      WHERE (source IN ('imported', 'uploaded') OR source LIKE 'uploaded by %')
-        AND classification != 'OUTDATED' AND status != 'OUTDATED';
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN organizations o ON o.id = $1
+      WHERE ac.organization_id = $1
+        AND a.date_published >= o.created_at
+        AND (a.source IN ('imported', 'uploaded') OR a.source LIKE 'uploaded by %')
+        AND ac.classification != 'OUTDATED'
+        AND ac.status != 'OUTDATED';
     `
 
     const [backlogResult, serviceLevelResult, ownArticlesResult] = await Promise.all([
-      query(backlogSql),
-      query(serviceLevelSql),
-      query(ownArticlesSql)
+      query(backlogSql, [organizationId]),
+      query(serviceLevelSql, [organizationId]),
+      query(ownArticlesSql, [organizationId])
     ])
 
     return {

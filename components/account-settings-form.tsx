@@ -14,7 +14,7 @@ interface UserData {
   username: string
   fullName: string
   email: string
-  organization: string
+  organizationName: string
 }
 
 export function AccountSettingsForm({ userId }: AccountSettingsFormProps) {
@@ -24,7 +24,7 @@ export function AccountSettingsForm({ userId }: AccountSettingsFormProps) {
     username: "",
     fullName: "",
     email: "",
-    organization: "",
+    organizationName: "",
   })
 
   // Fetch current user data
@@ -40,7 +40,7 @@ export function AccountSettingsForm({ userId }: AccountSettingsFormProps) {
           username: data.username || "",
           fullName: data.fullName || "",
           email: data.email || "",
-          organization: data.organization || "",
+          organizationName: data.organizationName || "",
         })
       } catch (error) {
         console.error("Error fetching user data:", error)
@@ -84,7 +84,6 @@ export function AccountSettingsForm({ userId }: AccountSettingsFormProps) {
         body: JSON.stringify({
           fullName: formData.fullName,
           email: formData.email,
-          organization: formData.organization,
         }),
       })
 
@@ -161,12 +160,12 @@ export function AccountSettingsForm({ userId }: AccountSettingsFormProps) {
         <Label htmlFor="organization">Organization</Label>
         <Input
           id="organization"
-          placeholder="Enter your organization (optional)"
-          value={formData.organization}
-          onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+          value={formData.organizationName}
+          disabled
+          className="bg-muted cursor-not-allowed"
         />
         <p className="text-sm text-muted-foreground">
-          The company or organization you work for
+          Organization is managed by your administrator
         </p>
       </div>
 

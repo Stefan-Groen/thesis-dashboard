@@ -7,10 +7,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { auth } from '@/auth'
 import { SUMMARY_SYSTEM_PROMPT, getSummaryUserPrompt, SUMMARY_AI_CONFIG } from '@/lib/prompts/summary-prompt'
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
     const { date } = await request.json()
 
     if (!date) {
@@ -20,32 +30,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check for existing summaries and determine next version number
+    // Check for existing summaries and determine next version number (for this org)
     const existingCheck = await query(
-      `SELECT MAX(version) as max_version FROM summaries WHERE summary_date = $1`,
-      [date]
+      `SELECT MAX(version) as max_version FROM summaries
+       WHERE summary_date = $1 AND organization_id = $2`,
+      [date, session.user.organizationId]
     )
 
     const nextVersion = existingCheck.rows[0]?.max_version
       ? existingCheck.rows[0].max_version + 1
       : 1
 
-    // Fetch threats and opportunities from the specified date
+    // Fetch threats and opportunities from the specified date for this organization
     const articlesResult = await query(
       `SELECT
-        id,
-        title,
-        classification,
-        explanation,
-        reasoning,
-        advice,
-        date_published
-      FROM articles
-      WHERE DATE(date_published) = $1
-        AND classification IN ('Threat', 'Opportunity')
-        AND status = 'CLASSIFIED'
-      ORDER BY classification, title`,
-      [date]
+        a.id,
+        a.title,
+        a.summary,
+        ac.classification,
+        ac.explanation,
+        ac.reasoning,
+        ac.advice,
+        ac.criti_score,
+        a.date_published,
+        csd.correctness_factual_soundness,
+        csd.relevance_alignment,
+        csd.reasoning_transparency,
+        csd.practical_usefulness_actionability,
+        csd.clarity_communication_quality,
+        csd.safety_bias_appropriateness,
+        csd.correctness_factual_soundness_explanation,
+        csd.relevance_alignment_explanation,
+        csd.reasoning_transparency_explanation,
+        csd.practical_usefulness_actionability_explanation,
+        csd.clarity_communication_quality_explanation,
+        csd.safety_bias_appropriateness_explanation
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN organizations o ON o.id = $2
+      LEFT JOIN criticality_scores_detail csd ON ac.id = csd.article_classification_id
+      WHERE DATE(a.date_published) = $1
+        AND ac.organization_id = $2
+        AND ac.classification IN ('Threat', 'Opportunity')
+        AND ac.status = 'CLASSIFIED'
+        AND a.date_published >= o.created_at
+      ORDER BY ac.classification, a.title`,
+      [date, session.user.organizationId]
     )
 
     const articles = articlesResult.rows
@@ -68,14 +98,40 @@ export async function POST(request: NextRequest) {
 
     // Build article summary text
     const articlesText = articles.map((article, index) => {
-      return `
+      let articleText = `
 Article ${index + 1}: ${article.title}
 Summary: ${article.summary || 'N/A'}
 Classification: ${article.classification}
 Explanation: ${article.explanation || 'N/A'}
 Reasoning: ${article.reasoning || 'N/A'}
-Advice: ${article.advice || 'N/A'}
----`
+Advice: ${article.advice || 'N/A'}`
+
+      // Add criticality score if available
+      if (article.criti_score !== null && article.criti_score !== undefined) {
+        articleText += `
+Overall Criticality Score: ${article.criti_score}/100`
+      }
+
+      // Add criticality score details if available
+      if (article.correctness_factual_soundness !== null && article.correctness_factual_soundness !== undefined) {
+        articleText += `
+Criticality Score Breakdown:
+  - Correctness & Factual Soundness: ${article.correctness_factual_soundness}/100
+    ${article.correctness_factual_soundness_explanation ? `Explanation: ${article.correctness_factual_soundness_explanation}` : ''}
+  - Relevance & Alignment: ${article.relevance_alignment}/100
+    ${article.relevance_alignment_explanation ? `Explanation: ${article.relevance_alignment_explanation}` : ''}
+  - Reasoning Transparency: ${article.reasoning_transparency}/100
+    ${article.reasoning_transparency_explanation ? `Explanation: ${article.reasoning_transparency_explanation}` : ''}
+  - Practical Usefulness & Actionability: ${article.practical_usefulness_actionability}/100
+    ${article.practical_usefulness_actionability_explanation ? `Explanation: ${article.practical_usefulness_actionability_explanation}` : ''}
+  - Clarity & Communication Quality: ${article.clarity_communication_quality}/100
+    ${article.clarity_communication_quality_explanation ? `Explanation: ${article.clarity_communication_quality_explanation}` : ''}
+  - Safety, Bias & Appropriateness: ${article.safety_bias_appropriateness}/100
+    ${article.safety_bias_appropriateness_explanation ? `Explanation: ${article.safety_bias_appropriateness_explanation}` : ''}`
+      }
+
+      articleText += '\n---'
+      return articleText
     }).join('\n\n')
 
     const prompt = {
@@ -126,12 +182,12 @@ Advice: ${article.advice || 'N/A'}
 
     console.log('Generated summary content:', summaryContent.substring(0, 200) + '...')
 
-    // Store the summary in the database with version number
+    // Store the summary in the database with version number and organization_id
     const insertResult = await query(
-      `INSERT INTO summaries (summary_date, version, content, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
+      `INSERT INTO summaries (summary_date, version, content, organization_id, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
        RETURNING id, summary_date, version, content, created_at`,
-      [date, nextVersion, summaryContent]
+      [date, nextVersion, summaryContent, session.user.organizationId]
     )
 
     const savedSummary = insertResult.rows[0]

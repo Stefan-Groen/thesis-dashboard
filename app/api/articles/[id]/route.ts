@@ -1,7 +1,10 @@
 /**
  * API Route: /api/articles/[id]
  *
- * DELETE - Delete an article (only if uploaded by current user)
+ * DELETE - Delete an article classification for the user's organization
+ *
+ * MULTI-TENANT: In multi-tenant mode, we delete the classification, not the article itself
+ * (since articles are shared across organizations)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -23,6 +26,16 @@ export async function DELETE(
       )
     }
 
+    // Get the user's organization ID
+    const organizationId = session.user.organizationId
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'User is not associated with an organization' },
+        { status: 403 }
+      )
+    }
+
     const { id } = await params
     const articleId = parseInt(id)
 
@@ -33,17 +46,18 @@ export async function DELETE(
       )
     }
 
-    // First, check if the article exists and was uploaded by this user
+    // Check if the article was uploaded by this user's organization
     const checkSql = `
-      SELECT id, source
-      FROM articles
-      WHERE id = $1
+      SELECT a.id, a.source
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      WHERE a.id = $1 AND ac.organization_id = $2
     `
-    const checkResult = await query(checkSql, [articleId])
+    const checkResult = await query(checkSql, [articleId, organizationId])
 
     if (checkResult.rows.length === 0) {
       return NextResponse.json(
-        { error: 'Article not found' },
+        { error: 'Article not found or not accessible' },
         { status: 404 }
       )
     }
@@ -59,26 +73,43 @@ export async function DELETE(
       )
     }
 
-    // If source is 'uploaded' or 'imported', need to verify it's actually the current user's
-    // For now, we'll allow deletion if it matches the expected pattern
-    if (article.source === 'uploaded' || article.source === 'imported') {
-      // These older entries don't have username, we'll allow deletion for backward compatibility
-      // In production, you might want stricter checks
-    }
+    // MULTI-TENANT: Delete the classification for this organization
+    // If this is a user-uploaded article, also delete the article itself
+    const isUserUploaded = article.source === expectedSource ||
+                          article.source === 'uploaded' ||
+                          article.source === 'imported'
 
-    // Delete the article
-    const deleteSql = `
-      DELETE FROM articles
-      WHERE id = $1
-      RETURNING id
-    `
-    const deleteResult = await query(deleteSql, [articleId])
+    if (isUserUploaded) {
+      // Delete the entire article (and cascades to all classifications)
+      const deleteSql = `
+        DELETE FROM articles
+        WHERE id = $1
+        RETURNING id
+      `
+      const deleteResult = await query(deleteSql, [articleId])
 
-    if (deleteResult.rows.length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to delete article' },
-        { status: 500 }
-      )
+      if (deleteResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to delete article' },
+          { status: 500 }
+        )
+      }
+    } else {
+      // Just mark the classification as OUTDATED for this organization
+      const updateSql = `
+        UPDATE article_classifications
+        SET status = 'OUTDATED', classification = 'OUTDATED'
+        WHERE article_id = $1 AND organization_id = $2
+        RETURNING id
+      `
+      const updateResult = await query(updateSql, [articleId, organizationId])
+
+      if (updateResult.rows.length === 0) {
+        return NextResponse.json(
+          { error: 'Failed to update classification' },
+          { status: 500 }
+        )
+      }
     }
 
     // Revalidate relevant pages

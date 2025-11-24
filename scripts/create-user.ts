@@ -39,11 +39,36 @@ async function createUser() {
     console.log('\n🔐 User Creation Script')
     console.log('========================\n')
 
+    // First, fetch and display available organizations
+    console.log('📋 Available organizations:')
+    const orgSql = `
+      SELECT id, name
+      FROM organizations
+      ORDER BY name ASC;
+    `
+    const orgResult = await query(orgSql)
+
+    if (orgResult.rows.length === 0) {
+      console.error('\n❌ Error: No organizations found!')
+      console.error('   Please create an organization first using: npx tsx scripts/create-organization.ts')
+      rl.close()
+      process.exit(1)
+    }
+
+    console.log('─────────────────────────────────────────')
+    orgResult.rows.forEach((org, index) => {
+      console.log(`${index + 1}. ${org.name} (ID: ${org.id})`)
+    })
+    console.log('─────────────────────────────────────────\n')
+
     // Get user details
     const username = await askQuestion('Enter username: ')
     const password = await askQuestion('Enter password: ')
     const fullName = await askQuestion('Enter full name (optional): ')
     const email = await askQuestion('Enter email (optional): ')
+
+    // Get organization selection
+    const orgChoice = await askQuestion(`Select organization (1-${orgResult.rows.length}): `)
 
     // Validate required fields
     if (!username || !password) {
@@ -51,6 +76,16 @@ async function createUser() {
       rl.close()
       process.exit(1)
     }
+
+    // Validate organization selection
+    const orgIndex = parseInt(orgChoice) - 1
+    if (isNaN(orgIndex) || orgIndex < 0 || orgIndex >= orgResult.rows.length) {
+      console.error('\n❌ Error: Invalid organization selection!')
+      rl.close()
+      process.exit(1)
+    }
+
+    const selectedOrg = orgResult.rows[orgIndex]
 
     // Validate username (only letters, numbers, dots, underscores)
     if (!/^[a-zA-Z0-9._]+$/.test(username)) {
@@ -76,28 +111,30 @@ async function createUser() {
 
     // Insert user into database
     const sql = `
-      INSERT INTO users (username, password_hash, full_name, email)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, username, full_name, email, created_at;
+      INSERT INTO users (username, password_hash, full_name, email, organization_id)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, username, full_name, email, organization_id, created_at;
     `
 
     const result = await query(sql, [
       username,
       passwordHash,
       fullName || null,
-      email || null
+      email || null,
+      selectedOrg.id
     ])
 
     const user = result.rows[0]
 
     console.log('\n✅ User created successfully!\n')
     console.log('User Details:')
-    console.log('─────────────')
-    console.log(`ID:         ${user.id}`)
-    console.log(`Username:   ${user.username}`)
-    console.log(`Full Name:  ${user.full_name || 'Not provided'}`)
-    console.log(`Email:      ${user.email || 'Not provided'}`)
-    console.log(`Created:    ${user.created_at}`)
+    console.log('─────────────────────────')
+    console.log(`ID:           ${user.id}`)
+    console.log(`Username:     ${user.username}`)
+    console.log(`Full Name:    ${user.full_name || 'Not provided'}`)
+    console.log(`Email:        ${user.email || 'Not provided'}`)
+    console.log(`Organization: ${selectedOrg.name}`)
+    console.log(`Created:      ${user.created_at}`)
     console.log('\n🎉 You can now use these credentials to log in!\n')
 
   } catch (error: any) {

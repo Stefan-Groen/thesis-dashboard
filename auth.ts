@@ -76,9 +76,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
           console.log(`🔍 Attempting login for user: ${username}`)
 
-          // Look up the user in the database
+          // Look up the user in the database (including organization_id for multi-tenancy)
           const sql = `
-            SELECT id, username, password_hash, full_name, email, is_active, last_login
+            SELECT id, username, password_hash, full_name, email, is_active, last_login, organization_id
             FROM users
             WHERE username = $1;
           `
@@ -116,7 +116,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           `
           await query(updateSql, [user.id])
 
-          console.log(`✅ Login successful for user: ${username}`)
+          console.log(`✅ Login successful for user: ${username} (Organization ID: ${user.organization_id})`)
 
           // Return user object (this will be stored in the session)
           // Don't include password_hash!
@@ -124,7 +124,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.id.toString(),
             name: user.full_name || user.username,
             email: user.email,
-            username: user.username
+            username: user.username,
+            organizationId: user.organization_id  // Include organization_id for multi-tenancy
           }
 
         } catch (error) {
@@ -215,6 +216,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id
         token.username = (user as any).username
+        token.organizationId = (user as any).organizationId  // Add organization_id
       }
       return token
     },
@@ -229,13 +231,39 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
      * - Is someone logged in?
      * - Who is logged in?
      * - What's their username?
+     *
+     * SECURITY: Also validates that the user still exists and is active
      */
     async session({ session, token }) {
-      // Add custom fields from token to session
-      if (token && session.user) {
-        session.user.id = token.id as string
-        session.user.username = token.username as string
+      // Validate that the user still exists and is active
+      if (token?.id) {
+        try {
+          const sql = `
+            SELECT id, username, is_active, organization_id
+            FROM users
+            WHERE id = $1;
+          `
+          const result = await query(sql, [token.id])
+
+          // If user doesn't exist or is inactive, invalidate session
+          if (result.rows.length === 0 || !result.rows[0].is_active) {
+            console.log(`⚠️  Session invalidated: User ${token.username} no longer exists or is inactive`)
+            return null as any  // Return null to force logout
+          }
+
+          // User still exists and is active - update session with current data
+          const user = result.rows[0]
+          if (session.user) {
+            session.user.id = user.id.toString()
+            session.user.username = user.username
+            session.user.organizationId = user.organization_id
+          }
+        } catch (error) {
+          console.error('❌ Error validating session:', error)
+          return null as any  // On error, invalidate session for security
+        }
       }
+
       return session
     }
   }

@@ -1,35 +1,47 @@
 /**
  * API Route: /api/chart-data
  *
- * Returns time-series data for the classification trend bar chart.
+ * Returns time-series data for the classification trend bar chart FOR THE USER'S ORGANIZATION.
  * Groups articles by publication date (when articles were published).
  * Returns only Threats and Opportunities (excludes Neutral).
+ *
+ * MULTI-TENANT: Filters chart data by organization_id
  *
  * Query parameters:
  * - days: Number of days to show (default: 7)
  * - interval: Grouping interval - 'day', 'week', or 'month' (default: 'day')
- *
- * Example usage:
- * - /api/chart-data?days=7&interval=day
- * - /api/chart-data?days=30&interval=day
- * - /api/chart-data?days=90&interval=day
- *
- * Returns data format:
- * [
- *   { date: '2024-01-01', threats: 5, opportunities: 3 },
- *   { date: '2024-01-02', threats: 7, opportunities: 4 },
- *   ...
- * ]
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { auth } from '@/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    // Get the logged-in user's session
+    const session = await auth()
+
+    // Check if user is authenticated
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please log in' },
+        { status: 401 }
+      )
+    }
+
+    // Get the user's organization ID
+    const organizationId = session.user.organizationId
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'User is not associated with an organization' },
+        { status: 403 }
+      )
+    }
+
     // Get query parameters
     const { searchParams } = new URL(request.url)
-    const days = parseInt(searchParams.get('days') || '7', 10) // Changed default to 7 days
+    const days = parseInt(searchParams.get('days') || '7', 10)
     const interval = searchParams.get('interval') || 'day'
 
     // Validate interval parameter
@@ -41,14 +53,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Determine the date truncation function based on interval
-    // date_trunc() groups dates by day, week, or month
-    // Using date_published (when article was published)
-    // Convert to Europe/Amsterdam timezone before truncating to get correct local dates
-    const truncFunc = `date_trunc('${interval}', date_published AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Amsterdam')`
+    const truncFunc = `date_trunc('${interval}', a.date_published AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Amsterdam')`
 
     // SQL query to get counts grouped by publication date
-    // Only includes Threats and Opportunities (excludes Neutral and OUTDATED)
-    // Uses a date series to ensure all dates in the range are included (even with 0 counts)
+    // MULTI-TENANT: Join with article_classifications and filter by organization_id
     const sql = `
       WITH date_series AS (
         SELECT generate_series(
@@ -59,22 +67,27 @@ export async function GET(request: NextRequest) {
       )
       SELECT
         TO_CHAR(ds.date, 'YYYY-MM-DD') as date,
-        COALESCE(COUNT(*) FILTER (WHERE a.classification = 'Threat'), 0) as threats,
-        COALESCE(COUNT(*) FILTER (WHERE a.classification = 'Opportunity'), 0) as opportunities
+        COALESCE(COUNT(*) FILTER (WHERE ac.classification = 'Threat'), 0) as threats,
+        COALESCE(COUNT(*) FILTER (WHERE ac.classification = 'Opportunity'), 0) as opportunities
       FROM date_series ds
-      LEFT JOIN articles a ON ${truncFunc}::date = ds.date
-        AND a.classification IN ('Threat', 'Opportunity')
-        AND a.status != 'OUTDATED'
+      LEFT JOIN articles a
+        INNER JOIN article_classifications ac ON a.id = ac.article_id
+        INNER JOIN organizations o ON o.id = $1
+        ON ${truncFunc}::date = ds.date
+        AND ac.organization_id = $1
+        AND ac.classification IN ('Threat', 'Opportunity')
+        AND ac.status != 'OUTDATED'
+        AND a.date_published >= o.created_at
       GROUP BY ds.date
       ORDER BY ds.date ASC;
     `
 
-    // Execute query
-    const result = await query(sql)
+    // Execute query with organization_id
+    const result = await query(sql, [organizationId])
 
     // Format the data for the chart
     const chartData = result.rows.map((row) => ({
-      date: row.date || '', // Already formatted as YYYY-MM-DD string by PostgreSQL
+      date: row.date || '',
       threats: Number(row.threats),
       opportunities: Number(row.opportunities),
     }))

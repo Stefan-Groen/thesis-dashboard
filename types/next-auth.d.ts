@@ -17,11 +17,13 @@ declare module "next-auth" {
     user: {
       id: string
       username: string
+      organizationId: number  // Added for multi-tenancy
     } & DefaultSession["user"]
   }
 
   interface User {
     username: string
+    organizationId: number  // Added for multi-tenancy
   }
 }
 
@@ -32,5 +34,6 @@ declare module "next-auth/jwt" {
   interface JWT {
     id: string
     username: string
+    organizationId: number  // Added for multi-tenancy
   }
 }

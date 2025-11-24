@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { CriticalityScoreCircle } from "@/components/criticality-score-circle"
 
 interface FilteredArticlesTableProps {
   articles: Article[]
@@ -568,7 +569,7 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
           <Table>
             <TableHeader className="bg-muted sticky top-0 z-10">
               <TableRow>
-                <TableHead className="w-32">
+                <TableHead className="w-28">
                   <button
                     onClick={() => handleSort('classification')}
                     className="flex items-center hover:text-foreground"
@@ -580,7 +581,10 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                 <TableHead className="w-12 text-center">
                   <IconStar className="size-4 mx-auto" />
                 </TableHead>
-                <TableHead>
+                <TableHead className="w-16 text-center">
+                  Criti Score
+                </TableHead>
+                <TableHead className="max-w-md">
                   <button
                     onClick={() => handleSort('title')}
                     className="flex items-center hover:text-foreground"
@@ -589,7 +593,7 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                     <SortIcon field="title" />
                   </button>
                 </TableHead>
-                <TableHead className="w-40">
+                <TableHead className="w-36">
                   <button
                     onClick={() => handleSort('date_published')}
                     className="flex items-center hover:text-foreground"
@@ -598,7 +602,7 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                     <SortIcon field="date_published" />
                   </button>
                 </TableHead>
-                <TableHead className="w-32">
+                <TableHead className="w-28">
                   <button
                     onClick={() => handleSort('source')}
                     className="flex items-center hover:text-foreground"
@@ -636,6 +640,28 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                       <IconStar className="size-5 text-muted-foreground hover:text-yellow-500" />
                     )}
                   </button>
+                </TableCell>
+
+                {/* Criticality Score */}
+                <TableCell className="text-center">
+                  {article.criti_score !== null && article.criti_score !== undefined ? (
+                    <span
+                      className="text-sm font-semibold"
+                      style={{
+                        color: (() => {
+                          const score = article.criti_score
+                          if (score >= 75) return '#16a34a' // green-600
+                          if (score >= 50) return '#d97706' // amber-600
+                          if (score >= 25) return '#ea580c' // orange-600
+                          return '#dc2626' // red-600
+                        })(),
+                      }}
+                    >
+                      {Math.round(article.criti_score)}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </TableCell>
 
                 {/* Article Title */}
@@ -756,10 +782,13 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
               </DialogTitle>
               <DialogDescription>
                 Published: {selectedArticle?.date_published
-                  ? new Date(selectedArticle.date_published).toLocaleDateString('en-US', {
+                  ? new Date(selectedArticle.date_published).toLocaleString('en-US', {
                       month: 'long',
                       day: 'numeric',
                       year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
                     })
                   : 'Unknown'}
               </DialogDescription>
@@ -768,10 +797,24 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
 
           {/* Scrollable content area */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
-            {/* Classification */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Classification</h3>
-              <ClassificationBadge classification={selectedArticle?.classification || ''} />
+            {/* Classification and Criticality Score */}
+            <div className="flex items-start justify-between gap-6">
+              {/* Classification */}
+              <div>
+                <h3 className="text-sm font-semibold mb-2">Classification</h3>
+                <ClassificationBadge classification={selectedArticle?.classification || ''} />
+              </div>
+
+              {/* Criticality Score Circle - positioned on the right */}
+              <div className="flex flex-col items-center">
+                <h3 className="text-sm font-semibold mb-2">Criticality Score</h3>
+                <CriticalityScoreCircle
+                  score={selectedArticle?.criti_score ?? null}
+                  explanation={selectedArticle?.criti_explanation ?? null}
+                  detail={selectedArticle?.criticality_detail ?? null}
+                  articleTitle={selectedArticle?.title}
+                />
+              </div>
             </div>
 
             {/* Advice */}

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { query } from "@/lib/db"
+import { auth } from "@/auth"
 
 interface SummaryPageProps {
   params: Promise<{
@@ -25,17 +26,17 @@ interface SummaryPageProps {
   }>
 }
 
-async function getSummary(date: string) {
+async function getSummary(date: string, organizationId: number) {
   try {
     const sql = `
       SELECT id, summary_date::text as date, version, content, created_at as "createdAt", updated_at as "updatedAt"
       FROM summaries
-      WHERE summary_date = $1
+      WHERE summary_date = $1 AND organization_id = $2
       ORDER BY version DESC
       LIMIT 1;
     `
 
-    const result = await query(sql, [date])
+    const result = await query(sql, [date, organizationId])
 
     if (result.rows.length === 0) {
       return null
@@ -49,8 +50,13 @@ async function getSummary(date: string) {
 }
 
 export default async function SummaryDetailPage({ params }: SummaryPageProps) {
+  const session = await auth()
+  if (!session?.user?.organizationId) {
+    notFound()
+  }
+
   const { date } = await params
-  const summary = await getSummary(date)
+  const summary = await getSummary(date, session.user.organizationId)
 
   if (!summary) {
     notFound()
