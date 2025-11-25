@@ -9,7 +9,7 @@
 export const dynamic = 'force-dynamic'
 
 import Link from "next/link"
-import { IconGauge, IconUser, IconUpload } from "@tabler/icons-react"
+import { IconGauge, IconUser, IconUpload, IconStarFilled, IconAlertCircle } from "@tabler/icons-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ActivityLineChart } from "@/components/activity-line-chart"
@@ -193,11 +193,12 @@ async function getActivityData(): Promise<ActivityDataPoint[]> {
 async function getMetrics(): Promise<Metrics> {
   try {
     const session = await auth()
-    if (!session?.user?.organizationId) {
-      return { backlog: 0, serviceLevel: 0, ownArticles: 0 }
+    if (!session?.user?.organizationId || !session?.user?.id) {
+      return { backlog: 0, serviceLevel: 0, ownArticles: 0, reviewedThreatsOpps: 0, newThreatsOpps: 0 }
     }
 
     const organizationId = session.user.organizationId
+    const userId = session.user.id
 
     const backlogSql = `
       SELECT COUNT(*) as count
@@ -238,20 +239,53 @@ async function getMetrics(): Promise<Metrics> {
         AND ac.status != 'OUTDATED';
     `
 
-    const [backlogResult, serviceLevelResult, ownArticlesResult] = await Promise.all([
+    const reviewedThreatsOppsSql = `
+      SELECT COUNT(DISTINCT a.id) as count
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN article_ratings ar ON a.id = ar.article_id
+      INNER JOIN organizations o ON o.id = $1
+      WHERE ac.organization_id = $1
+        AND ar.organization_id = $1
+        AND ar.user_id = $2
+        AND a.date_published >= o.created_at
+        AND ac.classification IN ('Threat', 'Opportunity')
+        AND ac.status = 'CLASSIFIED';
+    `
+
+    const newThreatsOppsSql = `
+      SELECT COUNT(DISTINCT a.id) as count
+      FROM articles a
+      INNER JOIN article_classifications ac ON a.id = ac.article_id
+      INNER JOIN organizations o ON o.id = $1
+      LEFT JOIN article_ratings ar ON a.id = ar.article_id
+        AND ar.organization_id = $1
+        AND ar.user_id = $2
+      WHERE ac.organization_id = $1
+        AND a.date_published >= o.created_at
+        AND ac.classification IN ('Threat', 'Opportunity')
+        AND ac.status = 'CLASSIFIED'
+        AND ar.id IS NULL;
+    `
+
+    const [backlogResult, serviceLevelResult, ownArticlesResult, reviewedResult, newResult] = await Promise.all([
       query(backlogSql, [organizationId]),
       query(serviceLevelSql, [organizationId]),
-      query(ownArticlesSql, [organizationId])
+      query(ownArticlesSql, [organizationId]),
+      query(reviewedThreatsOppsSql, [organizationId, userId]),
+      query(newThreatsOppsSql, [organizationId, userId])
     ])
 
     return {
       backlog: parseInt(backlogResult.rows[0].count) || 0,
       serviceLevel: parseFloat(serviceLevelResult.rows[0].service_level) || 0,
       ownArticles: parseInt(ownArticlesResult.rows[0].count) || 0,
+      reviewedThreatsOpps: parseInt(reviewedResult.rows[0].count) || 0,
+      newThreatsOpps: parseInt(newResult.rows[0].count) || 0,
     }
   } catch (error) {
     console.error('Error fetching metrics:', error)
-    return { backlog: 0, serviceLevel: 0, ownArticles: 0 }
+    return { backlog: 0, serviceLevel: 0, ownArticles: 0, reviewedThreatsOpps: 0, newThreatsOpps: 0 }
   }
 }
 
@@ -355,6 +389,53 @@ export default async function Page() {
                       </Card>
                     </Link>
                   </div>
+                </div>
+              </div>
+
+              {/* Row 5: Reviewed and New Threats/Opportunities cards */}
+              <div className="px-4 lg:px-6">
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-8">
+                  {/* Reviewed Threats/Opportunities Card - 2 cols wide (aligned with Service Level) */}
+                  <Link href="/dashboard/reviewed" className="@container/card lg:col-span-2">
+                    <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
+                      <div className="absolute top-4 left-4 z-10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <IconStarFilled className="size-5 text-yellow-600 dark:text-yellow-400" />
+                          <Badge variant="outline" className="text-xs text-yellow-600 dark:text-yellow-400">
+                            Reviewed
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg font-semibold mb-1">Reviewed T/O</CardTitle>
+                        <CardDescription className="text-xs">Articles you have rated</CardDescription>
+                      </div>
+                      <div className="absolute bottom-2 right-4 opacity-90">
+                        <span className="text-7xl font-black tabular-nums text-foreground/20">
+                          {metrics.reviewedThreatsOpps.toLocaleString()}
+                        </span>
+                      </div>
+                    </Card>
+                  </Link>
+
+                  {/* New Threats/Opportunities Card - 2 cols wide (aligned with Own Articles) */}
+                  <Link href="/dashboard/new" className="@container/card lg:col-span-2">
+                    <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
+                      <div className="absolute top-4 left-4 z-10">
+                        <div className="flex items-center gap-2 mb-2">
+                          <IconAlertCircle className="size-5 text-orange-600 dark:text-orange-400" />
+                          <Badge variant="outline" className="text-xs text-orange-600 dark:text-orange-400">
+                            New
+                          </Badge>
+                        </div>
+                        <CardTitle className="text-lg font-semibold mb-1">New T/O</CardTitle>
+                        <CardDescription className="text-xs">Awaiting your feedback</CardDescription>
+                      </div>
+                      <div className="absolute bottom-2 right-4 opacity-90">
+                        <span className="text-7xl font-black tabular-nums text-foreground/20">
+                          {metrics.newThreatsOpps.toLocaleString()}
+                        </span>
+                      </div>
+                    </Card>
+                  </Link>
                 </div>
               </div>
             </div>

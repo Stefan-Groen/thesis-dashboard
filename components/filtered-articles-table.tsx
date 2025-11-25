@@ -53,13 +53,20 @@ interface FilteredArticlesTableProps {
   showDelete?: boolean
 }
 
-type SortField = 'classification' | 'title' | 'date_published' | 'source'
+type SortField = 'classification' | 'title' | 'date_published' | 'source' | 'user_rating'
 type SortDirection = 'asc' | 'desc' | null
 
 export function FilteredArticlesTable({ articles, classification = 'All', showDelete = false }: FilteredArticlesTableProps) {
   const router = useRouter()
   const [selectedArticle, setSelectedArticle] = React.useState<Article | null>(null)
   const [showPdfTextModal, setShowPdfTextModal] = React.useState(false)
+  const [showRatingModal, setShowRatingModal] = React.useState(false)
+  const [rating, setRating] = React.useState(0)
+  const [hoverRating, setHoverRating] = React.useState(0)
+  const [reviewText, setReviewText] = React.useState('')
+  const [isSubmittingRating, setIsSubmittingRating] = React.useState(false)
+  const [isLoadingRating, setIsLoadingRating] = React.useState(false)
+  const [existingRatings, setExistingRatings] = React.useState<Record<number, { rating: number; review: string | null }>>({})
   const [currentPage, setCurrentPage] = React.useState(1)
   const [pageSize, setPageSize] = React.useState(30)
   const [sortField, setSortField] = React.useState<SortField | null>(null)
@@ -89,6 +96,20 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
       updated[article.id] = article.starred
     })
     setStarredArticles(updated)
+  }, [articles])
+
+  // Initialize existing ratings from articles that have user_rating
+  React.useEffect(() => {
+    const ratings: Record<number, { rating: number; review: string | null }> = {}
+    articles.forEach(article => {
+      if (article.user_rating !== null && article.user_rating !== undefined) {
+        ratings[article.id] = {
+          rating: article.user_rating,
+          review: article.user_review || null
+        }
+      }
+    })
+    setExistingRatings(ratings)
   }, [articles])
 
   // Toggle starred status
@@ -257,6 +278,105 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
     doc.save(filename)
   }
 
+  // Load existing rating for an article
+  const loadExistingRating = async (articleId: number) => {
+    // Check if we already have it in state
+    if (existingRatings[articleId]) {
+      setRating(existingRatings[articleId].rating)
+      setReviewText(existingRatings[articleId].review || '')
+      return
+    }
+
+    setIsLoadingRating(true)
+
+    try {
+      const response = await fetch(`/api/articles/ratings?articleId=${articleId}`)
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.rating) {
+          setRating(data.rating.rating)
+          setReviewText(data.rating.review || '')
+          // Store in state for future reference
+          setExistingRatings(prev => ({
+            ...prev,
+            [articleId]: {
+              rating: data.rating.rating,
+              review: data.rating.review
+            }
+          }))
+        } else {
+          // No existing rating
+          setRating(0)
+          setReviewText('')
+        }
+      } else {
+        // No rating found or error
+        setRating(0)
+        setReviewText('')
+      }
+    } catch (error) {
+      console.error('Error loading rating:', error)
+      setRating(0)
+      setReviewText('')
+    } finally {
+      setIsLoadingRating(false)
+    }
+  }
+
+  // Submit rating and review
+  const submitRating = async () => {
+    if (!selectedArticle || rating === 0) {
+      toast.error('Please select a rating')
+      return
+    }
+
+    setIsSubmittingRating(true)
+
+    try {
+      const response = await fetch('/api/articles/ratings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          articleId: selectedArticle.id,
+          rating,
+          review: reviewText.trim() || null,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to submit rating')
+      }
+
+      toast.success('Rating submitted successfully!')
+
+      // Update local state with new rating
+      setExistingRatings(prev => ({
+        ...prev,
+        [selectedArticle.id]: {
+          rating,
+          review: reviewText.trim() || null
+        }
+      }))
+
+      // Close modals
+      setShowRatingModal(false)
+      setSelectedArticle(null)
+      setRating(0)
+      setReviewText('')
+
+      // Trigger server-side revalidation to update the page
+      router.refresh()
+    } catch (error) {
+      console.error('Error submitting rating:', error)
+      toast.error('Failed to submit rating. Please try again.')
+    } finally {
+      setIsSubmittingRating(false)
+    }
+  }
+
   // Sorting logic
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -391,6 +511,11 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
 
   // Check if any filters are active
   const hasActiveFilters = sourceFilter !== 'all' || statusFilter !== 'all' || dateFromFilter !== '' || dateToFilter !== ''
+
+  // Check if any article has user_rating (show column only on reviewed page)
+  const hasUserRatings = React.useMemo(() => {
+    return articles.some(article => article.user_rating !== null && article.user_rating !== undefined)
+  }, [articles])
 
   // Helper to render sort icon
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -593,6 +718,17 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                     <SortIcon field="title" />
                   </button>
                 </TableHead>
+                {hasUserRatings && (
+                  <TableHead className="w-24 text-center">
+                    <button
+                      onClick={() => handleSort('user_rating')}
+                      className="flex items-center justify-center hover:text-foreground mx-auto"
+                    >
+                      Your Rating
+                      <SortIcon field="user_rating" />
+                    </button>
+                  </TableHead>
+                )}
                 <TableHead className="w-36">
                   <button
                     onClick={() => handleSort('date_published')}
@@ -668,6 +804,20 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                 <TableCell>
                   <div className="font-medium line-clamp-2">{article.title}</div>
                 </TableCell>
+
+                {/* User Rating - Only shown when hasUserRatings is true */}
+                {hasUserRatings && (
+                  <TableCell className="text-center">
+                    {article.user_rating !== null && article.user_rating !== undefined ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <IconStarFilled className="size-4 text-yellow-500" />
+                        <span className="text-sm font-semibold">{article.user_rating}</span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                )}
 
                 {/* Published Date */}
                 <TableCell>
@@ -846,12 +996,26 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
             )}
           </div>
 
-          {/* Sticky bottom section - Source and Link */}
+          {/* Sticky bottom section - Action buttons */}
           <div className="border-t bg-background px-6 py-4 flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                Source: <span className="font-medium">{selectedArticle?.source || 'Unknown'}</span>
-              </p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowRatingModal(true)
+                  if (selectedArticle) {
+                    loadExistingRating(selectedArticle.id)
+                  }
+                }}
+              >
+                {selectedArticle && existingRatings[selectedArticle.id] ? (
+                  <IconStarFilled className="size-4 mr-2 text-yellow-500" />
+                ) : (
+                  <IconStar className="size-4 mr-2" />
+                )}
+                Rate Classification
+              </Button>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" size="sm" onClick={downloadPDF}>
@@ -908,6 +1072,94 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
           <div className="border-t bg-background px-6 py-4 flex justify-end">
             <Button variant="outline" size="sm" onClick={() => setShowPdfTextModal(false)}>
               Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rating Modal */}
+      <Dialog open={showRatingModal} onOpenChange={setShowRatingModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Rate Classification</DialogTitle>
+            <DialogDescription className="text-sm pt-2">
+              {selectedArticle?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingRating ? (
+            <div className="py-8 flex items-center justify-center">
+              <div className="text-sm text-muted-foreground">Loading your rating...</div>
+            </div>
+          ) : (
+            <div className="space-y-6 py-4">
+              {/* Star Rating */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Rating (out of 10)</Label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="transition-all hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
+                      disabled={isSubmittingRating}
+                    >
+                      {(hoverRating >= star || rating >= star) ? (
+                        <IconStarFilled className="size-7 text-yellow-500" />
+                      ) : (
+                        <IconStar className="size-7 text-gray-300" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+                {rating > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    You rated: {rating} out of 10
+                  </p>
+                )}
+              </div>
+
+              {/* Review Text */}
+              <div className="space-y-2">
+                <Label htmlFor="review-text" className="text-sm font-medium">
+                  Explain shortly why this classification was (not) useful
+                </Label>
+                <textarea
+                  id="review-text"
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Optional: Share your feedback about this classification..."
+                  className="w-full min-h-[100px] px-3 py-2 text-sm rounded-md border border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                  maxLength={500}
+                  disabled={isSubmittingRating}
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {reviewText.length}/500 characters
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 border-t pt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRatingModal(false)
+                setRating(0)
+                setReviewText('')
+              }}
+              disabled={isSubmittingRating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={submitRating}
+              disabled={rating === 0 || isSubmittingRating}
+            >
+              {isSubmittingRating ? 'Submitting...' : 'Submit Rating'}
             </Button>
           </div>
         </DialogContent>

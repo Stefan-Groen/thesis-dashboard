@@ -63,6 +63,8 @@ export interface Article {
   criti_explanation: string | null
   criti_status: string
   criticality_detail: CriticalityScoreDetail | null
+  user_rating?: number | null
+  user_review?: string | null
 }
 
 // Chart data point (for bar chart - threats, opportunities, and neutral)
@@ -85,6 +87,8 @@ export interface Metrics {
   backlog: number
   serviceLevel: number
   ownArticles: number
+  reviewedThreatsOpps: number
+  newThreatsOpps: number
 }
 
 // API response types
