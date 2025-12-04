@@ -30,7 +30,7 @@ interface DashboardMiniTableProps {
  * Helper component to display classification badge with appropriate styling
  */
 function ClassificationBadge({ classification }: { classification: string | null }) {
-  const config = {
+  const config: Record<string, { className: string; label: string }> = {
     Threat: {
       className: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
       label: 'Threat',

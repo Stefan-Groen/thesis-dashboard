@@ -141,3 +141,149 @@
 .animate-spin-around {
   animation: spin-around calc(var(--speed) * 2) linear infinite;
 }
+
+.hero-gradient {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 0, 150, 0.45), transparent 60%),
+    radial-gradient(circle at 80% 40%, rgba(120, 0, 255, 0.4), transparent 65%);
+}
+
+
+.hero-bubble {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(400px); /* you can tweak */
+  opacity: 1.0;
+}
+
+
+.hero-bubble-one {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 800px;
+  height: 1000;
+
+  left: 100px;
+  top: -200px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #ff00a8 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+}
+
+.hero-bubble-two {
+  animation: float-medium 14s ease-in-out infinite;
+  position: absolute;
+  width: 536px;
+  height: 804px;
+
+  left: 500px;
+  top: -108px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 804px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #0004FF 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+
+}
+
+
+.hero-bubble-three {
+  animation: float-fast 20s ease-in-out infinite; 
+  position: absolute;
+  width: 555px;
+  height: 832px;
+
+  left: 750px;
+  top: -100px;
+
+  transform: rotate(15deg);
+
+
+  border-radius: 832px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #9D00FF 0%, 
+    rgba(82, 12, 126, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+
+}
+
+
+.hero-bubble-four {
+  animation: float-fast 20s ease-in-out infinite; 
+  position: absolute;
+  width: 555px;
+  height: 832px;
+
+  left: 750px;
+  top: 300px;
+
+  transform: rotate(15deg);
+
+
+  border-radius: 832px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #9D00FF 0%, 
+    rgba(82, 12, 126, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+
+}
+
+.hero-vignette {
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+.text-shadow-hero {
+  text-shadow: 0 4px 120px rgba(255, 255, 255, 0.35)
+}
+
+@keyframes float-slow {
+  0%   { transform: translate(0, 0) rotate(30deg); }
+  50%  { transform: translate(80px, -80px) rotate(40deg); }
+  100% { transform: translate(0, 0) rotate(33deg); }
+}
+
+@keyframes float-medium {
+  0%   { transform: translate(0, 0) rotate(30deg); }
+  50%  { transform: translate(-70px, 60px) rotate(20deg); }
+  100% { transform: translate(0, 0) rotate(30deg); }
+}
+
+@keyframes float-fast {
+  0%   { transform: translate(0, 0) rotate(15deg); }
+  50%  { transform: translate(60px, 40px) rotate(20deg); }
+  100% { transform: translate(0, 0) rotate(15deg); }
+}
