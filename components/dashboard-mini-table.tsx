@@ -89,7 +89,7 @@ export function DashboardMiniTable({ articles, limit = 3, viewAllHref }: Dashboa
                 key={article.id}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => {
-                  window.location.href = `/dashboard/articles/${article.id}`
+                  window.location.href = `/dashboard/article/${article.id}`
                 }}
               >
                 <TableCell>

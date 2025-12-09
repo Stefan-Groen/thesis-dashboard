@@ -2,7 +2,7 @@
  * Criticality Score Circle Component
  *
  * Displays a circular progress indicator showing the criticality score.
- * On hover, shows a tooltip with detailed breakdown of all scores and explanation.
+ * On click, shows a modal dialog with detailed breakdown of all scores and explanation.
  */
 
 'use client'
@@ -12,11 +12,12 @@ import Link from 'next/link'
 import { IconDownload, IconInfoCircle } from '@tabler/icons-react'
 import { jsPDF } from 'jspdf'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { CriticalityScoreDetail } from '@/lib/types'
 
@@ -95,6 +96,8 @@ export function CriticalityScoreCircle({
   articleTitle,
   size = 60,
 }: CriticalityScoreCircleProps) {
+  const [isOpen, setIsOpen] = React.useState(false)
+
   // PDF download handler
   const handleDownloadPDF = () => {
     if (!detail || score === null) return
@@ -215,116 +218,111 @@ export function CriticalityScoreCircle({
   }
 
   return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="relative cursor-help" style={{ width: size, height: size }}>
-            {/* Background circle */}
-            <svg
-              className="transform -rotate-90"
-              width={size}
-              height={size}
-              style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
-            >
-              {/* Background track */}
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke="#e5e7eb"
-                strokeWidth={strokeWidth}
-              />
-              {/* Progress fill */}
-              <circle
-                cx={size / 2}
-                cy={size / 2}
-                r={radius}
-                fill="none"
-                stroke={color}
-                strokeWidth={strokeWidth}
-                strokeDasharray={circumference}
-                strokeDashoffset={offset}
-                strokeLinecap="round"
-                style={{
-                  transition: 'stroke-dashoffset 0.5s ease-in-out',
-                }}
-              />
-            </svg>
-            {/* Score text in the center */}
-            <div
-              className="absolute inset-0 flex items-center justify-center"
-              style={{ fontSize: size / 3.5 }}
-            >
-              <span className="font-bold" style={{ color }}>
-                {Math.round(score)}
-              </span>
-            </div>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="start"
-          className="max-w-2xl p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg max-h-[600px] overflow-y-auto"
-          onWheel={(e) => {
-            e.stopPropagation()
-          }}
+    <>
+      <div
+        className="relative cursor-pointer hover:opacity-80 transition-opacity"
+        style={{ width: size, height: size }}
+        onClick={() => setIsOpen(true)}
+      >
+        {/* Background circle */}
+        <svg
+          className="transform -rotate-90"
+          width={size}
+          height={size}
+          style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))' }}
         >
-          <div className="space-y-3">
-            {/* Header with actions */}
-            <div className="border-b border-gray-200 dark:border-gray-700 pb-3">
-              <div className="flex items-start justify-between gap-3">
-                <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100">
-                  Criticality Score: {Math.round(score)}
-                </h4>
-                <div className="flex items-center gap-2">
-                  {/* Info link */}
-                  <Link href="/dashboard/criticality_score" target="_blank">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      title="Learn more about criticality scores"
-                    >
-                      <IconInfoCircle className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  {/* Download PDF */}
-                  {detail && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700"
-                      onClick={handleDownloadPDF}
-                      title="Download as PDF"
-                    >
-                      <IconDownload className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+          {/* Background track */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="#e5e7eb"
+            strokeWidth={strokeWidth}
+          />
+          {/* Progress fill */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            style={{
+              transition: 'stroke-dashoffset 0.5s ease-in-out',
+            }}
+          />
+        </svg>
+        {/* Score text in the center */}
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ fontSize: size / 3.5 }}
+        >
+          <span className="font-bold" style={{ color }}>
+            {Math.round(score)}
+          </span>
+        </div>
+      </div>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col p-0">
+          <div className="px-6 pt-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl pr-8">
+                Criticality Score: {Math.round(score)}
+              </DialogTitle>
+              <DialogDescription>
+                {articleTitle || 'Detailed breakdown of the criticality score'}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
+
+          {/* Scrollable content area */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="space-y-4">
+            {/* Action buttons */}
+            <div className="flex items-center gap-2">
+              {/* Info link */}
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/criticality_score" target="_blank">
+                  <IconInfoCircle className="h-4 w-4 mr-2" />
+                  Learn More
+                </Link>
+              </Button>
+              {/* Download PDF */}
+              {detail && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPDF}
+                >
+                  <IconDownload className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              )}
             </div>
 
             {/* Detailed scores with individual explanations */}
             {detail && (
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                  Detailed Breakdown
-                </p>
-                <div className="space-y-3">
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Detailed Breakdown</h3>
+                <div className="space-y-4">
                   {/* Correctness & Factual Soundness */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.correctness_factual_soundness} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Correctness & Factual Soundness
                       </span>
                       {detail.correctness_factual_soundness_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.correctness_factual_soundness_explanation}
                         </p>
                       )}
@@ -332,18 +330,18 @@ export function CriticalityScoreCircle({
                   </div>
 
                   {/* Relevance & Alignment */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.relevance_alignment} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Relevance & Alignment
                       </span>
                       {detail.relevance_alignment_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.relevance_alignment_explanation}
                         </p>
                       )}
@@ -351,18 +349,18 @@ export function CriticalityScoreCircle({
                   </div>
 
                   {/* Reasoning Transparency */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.reasoning_transparency} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Reasoning Transparency
                       </span>
                       {detail.reasoning_transparency_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.reasoning_transparency_explanation}
                         </p>
                       )}
@@ -370,18 +368,18 @@ export function CriticalityScoreCircle({
                   </div>
 
                   {/* Practical Usefulness & Actionability */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.practical_usefulness_actionability} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Practical Usefulness & Actionability
                       </span>
                       {detail.practical_usefulness_actionability_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.practical_usefulness_actionability_explanation}
                         </p>
                       )}
@@ -389,18 +387,18 @@ export function CriticalityScoreCircle({
                   </div>
 
                   {/* Clarity & Communication Quality */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.clarity_communication_quality} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Clarity & Communication Quality
                       </span>
                       {detail.clarity_communication_quality_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.clarity_communication_quality_explanation}
                         </p>
                       )}
@@ -408,18 +406,18 @@ export function CriticalityScoreCircle({
                   </div>
 
                   {/* Safety, Bias & Appropriateness */}
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
                     {/* Mini Circle */}
                     <div className="flex-shrink-0 pt-1">
                       <MiniCircle score={detail.safety_bias_appropriateness} />
                     </div>
                     {/* Factor and Explanation */}
                     <div className="flex-1 space-y-1">
-                      <span className="text-xs font-bold text-gray-900 dark:text-gray-100 block">
+                      <span className="text-sm font-semibold block">
                         Safety, Bias & Appropriateness
                       </span>
                       {detail.safety_bias_appropriateness_explanation && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
                           {detail.safety_bias_appropriateness_explanation}
                         </p>
                       )}
@@ -431,13 +429,21 @@ export function CriticalityScoreCircle({
 
             {/* If no detail available */}
             {!detail && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 italic">
+              <p className="text-sm text-muted-foreground italic">
                 No detailed breakdown available
               </p>
             )}
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          </div>
+
+          {/* Sticky bottom section - Close button */}
+          <div className="border-t bg-background px-6 py-4 flex justify-end">
+            <Button variant="outline" size="sm" onClick={() => setIsOpen(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

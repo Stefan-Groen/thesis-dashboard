@@ -5,8 +5,6 @@ import Link from "next/link"
 import {
   IconHome,
   IconNews,
-  IconAlertTriangle,
-  IconSparkles,
   IconCircle,
   IconStar,
   IconUser,
@@ -20,6 +18,7 @@ import {
   IconMail,
   IconHelp,
 } from "@tabler/icons-react"
+import { OctagonAlert, Lightbulb } from "lucide-react"
 import { useSession, signOut } from "next-auth/react"
 
 import { NavMain } from "@/components/nav-main"
@@ -54,12 +53,12 @@ const data = {
     {
       title: "Threats",
       url: "/dashboard/threats",
-      icon: IconAlertTriangle,
+      icon: OctagonAlert,
     },
     {
       title: "Opportunities",
       url: "/dashboard/opportunities",
-      icon: IconSparkles,
+      icon: Lightbulb,
     },
     {
       title: "Neutral",

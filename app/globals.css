@@ -79,11 +79,11 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: #151515;
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: #1E1E1E;
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: #404040;
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -102,7 +102,7 @@
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: #1A1A1A;
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -286,4 +286,150 @@
   0%   { transform: translate(0, 0) rotate(15deg); }
   50%  { transform: translate(60px, 40px) rotate(20deg); }
   100% { transform: translate(0, 0) rotate(15deg); }
+}
+
+.hero-bubble-R1 {
+  animation: float-fast 20s ease-in-out infinite; 
+  position: absolute;
+  width: 555px;
+  height: 832px;
+
+  left: 500px;
+  top: 1100px;
+
+  transform: rotate(15deg);
+
+
+  border-radius: 832px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #9D00FF 0%, 
+    rgba(82, 12, 126, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+
+}
+
+
+.hero-bubble-R2 {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 800px;
+  height: 1000;
+
+  left: -100px;
+  top: 1100px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #0095FF 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+}
+
+.hero-bubble-R3 {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 700px;
+  height: 700px;
+
+  left: 900px;
+  top: 2100px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #00E5FF 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+}
+
+.hero-bubble-R4 {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 800px;
+  height: 600px;
+
+  left: -500px;
+  top: 2100px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #7806bf 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+}
+
+.hero-bubble-R5 {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 400px;
+  height: 400px;
+
+  left: -250px;
+  top: 2200px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #ff00a8 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
+}
+
+.hero-bubble-5 {
+  animation: float-slow 16s ease-in-out infinite;
+  position: absolute;
+  width: 600px;
+  height: 600px;
+
+  left: -300px;
+  top: 500px;
+
+  transform: rotate(30deg);
+
+
+  border-radius: 1200px;
+  background: radial-gradient(
+    50% 50% at 50% 50%, 
+    #00E5FF 0%, 
+    rgba(255, 0, 168, 0) 100%
+  );
+
+  filter: blur(200px); /* same as Figma Layer blur */
+
+  pointer-events: none;
 }

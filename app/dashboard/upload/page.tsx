@@ -41,8 +41,10 @@ export default async function UploadPage() {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-6 py-6 md:gap-8 md:py-8">
-              <div className="px-4 lg:px-6">
+            {/* Max-width container for better layout on large screens */}
+            <div className="mx-auto w-full max-w-[1600px]">
+              <div className="flex flex-col gap-6 py-6 md:gap-8 md:py-8">
+                <div className="px-4 lg:px-6">
                 {/* Page Header */}
                 <div className="mb-8 space-y-2">
                   <div className="flex items-center gap-3">

@@ -41,8 +41,10 @@ export default async function AccountPage() {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              <div className="px-4 lg:px-6">
+            {/* Max-width container for better layout on large screens */}
+            <div className="mx-auto w-full max-w-[1600px]">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                <div className="px-4 lg:px-6">
                 <Card className="max-w-2xl">
                   <CardHeader>
                     <CardTitle>Account Settings</CardTitle>
@@ -54,6 +56,7 @@ export default async function AccountPage() {
                     <AccountSettingsForm userId={session.user.id} />
                   </CardContent>
                 </Card>
+                </div>
               </div>
             </div>
           </div>

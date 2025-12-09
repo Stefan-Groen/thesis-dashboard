@@ -15,7 +15,6 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ActivityLineChart } from "@/components/activity-line-chart"
 import { MetricCards } from "@/components/metric-cards"
 import { UploadArticleDialog } from "@/components/upload-article-dialog"
-import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { Badge } from "@/components/ui/badge"
 import { DashboardMiniTable } from "@/components/dashboard-mini-table"
@@ -27,6 +26,8 @@ import {
 import type { Stats, ChartDataPoint, ActivityDataPoint, Metrics } from "@/lib/types"
 import { query } from "@/lib/db"
 import { auth } from "@/auth"
+import { NewSinceLastVisit } from "@/components/new-since-last-visit"
+import { DashboardContent } from "@/components/dashboard-content"
 
 /**
  * Fetch dashboard statistics directly from database
@@ -70,6 +71,53 @@ async function getStats(): Promise<Stats> {
     }
   } catch (error) {
     console.error('Error fetching stats:', error)
+    return { total: 0, threats: 0, opportunities: 0, neutral: 0, unclassified: 0, articlesToday: 0, starred: 0 }
+  }
+}
+
+/**
+ * Fetch today's statistics directly from database
+ * MULTI-TENANT: Filters by organization_id
+ */
+async function getTodayStats(): Promise<Stats> {
+  try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return { total: 0, threats: 0, opportunities: 0, neutral: 0, unclassified: 0, articlesToday: 0, starred: 0 }
+    }
+
+    const sql = `
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+        COUNT(*) FILTER (WHERE ac.classification IS NULL OR ac.classification = '' OR ac.status = 'PENDING') as unclassified,
+        COUNT(*) as articles_today,
+        COUNT(*) FILTER (WHERE ac.starred = true) as starred
+      FROM articles a
+      LEFT JOIN article_classifications ac ON a.id = ac.article_id AND ac.organization_id = $1
+      INNER JOIN organizations o ON o.id = $1
+      WHERE DATE(a.date_published) = CURRENT_DATE
+        AND (ac.status IS NULL OR ac.status != 'OUTDATED')
+        AND (ac.classification IS NULL OR ac.classification != 'OUTDATED')
+        AND a.date_published >= o.created_at;
+    `
+
+    const result = await query(sql, [session.user.organizationId])
+    const row = result.rows[0]
+
+    return {
+      total: parseInt(row.total) || 0,
+      threats: parseInt(row.threats) || 0,
+      opportunities: parseInt(row.opportunities) || 0,
+      neutral: parseInt(row.neutral) || 0,
+      unclassified: parseInt(row.unclassified) || 0,
+      articlesToday: parseInt(row.articles_today) || 0,
+      starred: parseInt(row.starred) || 0,
+    }
+  } catch (error) {
+    console.error('Error fetching today stats:', error)
     return { total: 0, threats: 0, opportunities: 0, neutral: 0, unclassified: 0, articlesToday: 0, starred: 0 }
   }
 }
@@ -360,12 +408,93 @@ async function getMetrics(): Promise<Metrics> {
 }
 
 /**
+ * Fetch new articles since last dashboard visit
+ * MULTI-TENANT: Filters by organization_id
+ */
+async function getNewSinceLastVisit(): Promise<{ threats: number, opportunities: number, neutral: number, unclassified: number }> {
+  try {
+    const session = await auth()
+    if (!session?.user?.organizationId || !session?.user?.id) {
+      return { threats: 0, opportunities: 0, neutral: 0, unclassified: 0 }
+    }
+
+    // Get user's last dashboard visit timestamp
+    const userResult = await query(
+      `SELECT last_dashboard_visit FROM users WHERE id = $1`,
+      [session.user.id]
+    )
+
+    const lastVisit = userResult.rows[0]?.last_dashboard_visit
+
+    // If no last visit recorded, return zeros
+    if (!lastVisit) {
+      return { threats: 0, opportunities: 0, neutral: 0, unclassified: 0 }
+    }
+
+    // Count new articles by classification since last visit
+    const sql = `
+      SELECT
+        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+        COUNT(*) FILTER (WHERE ac.classification IS NULL OR ac.classification = '' OR ac.status = 'PENDING') as unclassified
+      FROM articles a
+      LEFT JOIN article_classifications ac ON a.id = ac.article_id AND ac.organization_id = $1
+      INNER JOIN organizations o ON o.id = $1
+      WHERE a.date_published >= $2
+        AND a.date_published >= o.created_at
+        AND (ac.status IS NULL OR ac.status != 'OUTDATED')
+        AND (ac.classification IS NULL OR ac.classification != 'OUTDATED');
+    `
+
+    const result = await query(sql, [session.user.organizationId, lastVisit])
+    const row = result.rows[0]
+
+    return {
+      threats: parseInt(row.threats) || 0,
+      opportunities: parseInt(row.opportunities) || 0,
+      neutral: parseInt(row.neutral) || 0,
+      unclassified: parseInt(row.unclassified) || 0,
+    }
+  } catch (error) {
+    console.error('Error fetching new articles since last visit:', error)
+    return { threats: 0, opportunities: 0, neutral: 0, unclassified: 0 }
+  }
+}
+
+/**
+ * Update user's last dashboard visit timestamp
+ */
+async function updateLastDashboardVisit() {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) {
+      return
+    }
+
+    await query(
+      `UPDATE users SET last_dashboard_visit = NOW() WHERE id = $1`,
+      [session.user.id]
+    )
+  } catch (error) {
+    console.error('Error updating last_dashboard_visit:', error)
+  }
+}
+
+/**
  * Main Dashboard Page Component
  */
 export default async function Page() {
+  // Fetch new articles count BEFORE updating last visit timestamp
+  const newSinceLastVisit = await getNewSinceLastVisit()
+
+  // Update the user's last dashboard visit timestamp
+  await updateLastDashboardVisit()
+
   // Fetch all data in parallel for better performance
-  const [stats, chartData, activityData, metrics, todayArticles, starredArticles] = await Promise.all([
+  const [stats, todayStats, chartData, activityData, metrics, todayArticles, starredArticles] = await Promise.all([
     getStats(),
+    getTodayStats(),
     getChartData(),
     getActivityData(),
     getMetrics(),
@@ -391,7 +520,7 @@ export default async function Page() {
             <div className="mx-auto w-full max-w-[1600px]">
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
                 {/* Row 1: Threats, Opportunities, Neutral, Pending (4 tiles × 2 cols each) */}
-                <SectionCards stats={stats} />
+                <DashboardContent stats={stats} todayStats={todayStats} />
 
                 {/* Row 2-3: Both graphs side by side (4 cols each, 2 rows height) */}
                 <div className="px-4 lg:px-6">
@@ -568,6 +697,20 @@ export default async function Page() {
                         </div>
                       </Card>
                     </Link>
+                  </div>
+                </div>
+
+                {/* Row 7: New Since Last Visit - 2 cols wide, 2 rows tall */}
+                <div className="px-4 lg:px-6">
+                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-8">
+                    <div className="lg:col-span-2 lg:row-span-2">
+                      <NewSinceLastVisit
+                        threats={newSinceLastVisit.threats}
+                        opportunities={newSinceLastVisit.opportunities}
+                        neutral={newSinceLastVisit.neutral}
+                        unclassified={newSinceLastVisit.unclassified}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

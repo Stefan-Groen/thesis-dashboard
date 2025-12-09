@@ -51,9 +51,11 @@ export function NewPageClient({ articles }: NewPageClientProps) {
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
-            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-              {/* Header */}
-              <div className="px-4 lg:px-6">
+            {/* Max-width container for better layout on large screens */}
+            <div className="mx-auto w-full max-w-[1600px]">
+              <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+                {/* Header */}
+                <div className="px-4 lg:px-6">
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <Button variant="outline" size="icon" asChild>
@@ -124,9 +126,10 @@ export function NewPageClient({ articles }: NewPageClientProps) {
                 </div>
               </div>
 
-              {/* Filtered Table */}
-              <div className="px-4 lg:px-6">
-                <FilteredArticlesTable articles={filteredArticles} classification="All" />
+                {/* Filtered Table */}
+                <div className="px-4 lg:px-6">
+                  <FilteredArticlesTable articles={filteredArticles} classification="All" />
+                </div>
               </div>
             </div>
           </div>

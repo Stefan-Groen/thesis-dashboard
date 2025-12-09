@@ -17,7 +17,8 @@
  */
 
 import Link from "next/link"
-import { IconAlertTriangle, IconSparkles, IconNews, IconCircle, IconCalendarEvent, IconStarFilled, IconClock } from "@tabler/icons-react"
+import { IconNews, IconCircle, IconCalendarEvent, IconStarFilled, IconClock } from "@tabler/icons-react"
+import { OctagonAlert, Lightbulb } from "lucide-react"
 import type { Stats } from "@/lib/types"
 
 import { Badge } from "@/components/ui/badge"
@@ -34,9 +35,13 @@ import { RadialStatCard } from "@/components/radial-stat-card"
 // Props interface (like function parameters with type hints)
 interface SectionCardsProps {
   stats: Stats
+  todayStats: Stats
+  view: "total" | "today"
 }
 
-export function SectionCards({ stats }: SectionCardsProps) {
+export function SectionCards({ stats, todayStats, view }: SectionCardsProps) {
+  const displayStats = view === "today" ? todayStats : stats
+
   return (
     <>
       {/* Row 1: 4 tiles (2 cols each) - Threats, Opportunities, Neutral, Pending */}
@@ -46,10 +51,10 @@ export function SectionCards({ stats }: SectionCardsProps) {
           <div>
             <RadialStatCard
               title="Threats"
-              value={stats.threats}
-              total={stats.total}
+              value={displayStats.threats}
+              total={displayStats.total}
               color="hsl(0, 84%, 60%)"
-              icon={<IconAlertTriangle className="size-5 text-red-600 dark:text-red-400" />}
+              icon={<OctagonAlert className="size-5 text-red-600 dark:text-red-400" />}
               href="/dashboard/threats"
             />
           </div>
@@ -58,10 +63,10 @@ export function SectionCards({ stats }: SectionCardsProps) {
           <div>
             <RadialStatCard
               title="Opportunities"
-              value={stats.opportunities}
-              total={stats.total}
+              value={displayStats.opportunities}
+              total={displayStats.total}
               color="hsl(142, 76%, 36%)"
-              icon={<IconSparkles className="size-5 text-green-600 dark:text-green-400" />}
+              icon={<Lightbulb className="size-5 text-green-600 dark:text-green-400" />}
               href="/dashboard/opportunities"
             />
           </div>
@@ -70,8 +75,8 @@ export function SectionCards({ stats }: SectionCardsProps) {
           <div>
             <RadialStatCard
               title="Neutral"
-              value={stats.neutral}
-              total={stats.total}
+              value={displayStats.neutral}
+              total={displayStats.total}
               color="hsl(221, 83%, 53%)"
               icon={<IconCircle className="size-5 text-blue-600 dark:text-blue-400" />}
               href="/dashboard/neutral"
@@ -82,8 +87,8 @@ export function SectionCards({ stats }: SectionCardsProps) {
           <div>
             <RadialStatCard
               title="Pending"
-              value={stats.unclassified}
-              total={stats.total}
+              value={displayStats.unclassified}
+              total={displayStats.total}
               color="hsl(0, 0%, 70%)"
               icon={<IconClock className="size-5 text-slate-500 dark:text-slate-400" />}
               href="/dashboard/backlog"
