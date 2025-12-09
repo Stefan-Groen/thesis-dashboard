@@ -103,6 +103,7 @@ export default async function UploadPage() {
             </div>
           </div>
         </div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   )
