@@ -51,12 +51,14 @@ interface FilteredArticlesTableProps {
   articles: Article[]
   classification?: 'Threat' | 'Opportunity' | 'Neutral' | 'All' | 'Backlog' | 'User Uploaded' | 'Starred'
   showDelete?: boolean
+  initialDateFilter?: string
+  customFilters?: React.ReactNode
 }
 
 type SortField = 'classification' | 'title' | 'date_published' | 'source' | 'user_rating'
 type SortDirection = 'asc' | 'desc' | null
 
-export function FilteredArticlesTable({ articles, classification = 'All', showDelete = false }: FilteredArticlesTableProps) {
+export function FilteredArticlesTable({ articles, classification = 'All', showDelete = false, initialDateFilter, customFilters }: FilteredArticlesTableProps) {
   const router = useRouter()
   const [selectedArticle, setSelectedArticle] = React.useState<Article | null>(null)
   const [showPdfTextModal, setShowPdfTextModal] = React.useState(false)
@@ -73,12 +75,12 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
   const [sortDirection, setSortDirection] = React.useState<SortDirection>(null)
   const [searchTerm, setSearchTerm] = React.useState('')
 
-  // Filter states
+  // Filter states - initialize date filters from URL if provided
   const [sourceFilter, setSourceFilter] = React.useState<string>('all')
   const [statusFilter, setStatusFilter] = React.useState<string>('all')
-  const [dateFromFilter, setDateFromFilter] = React.useState<string>('')
-  const [dateToFilter, setDateToFilter] = React.useState<string>('')
-  const [showFilters, setShowFilters] = React.useState(false)
+  const [dateFromFilter, setDateFromFilter] = React.useState<string>(initialDateFilter || '')
+  const [dateToFilter, setDateToFilter] = React.useState<string>(initialDateFilter || '')
+  const [showFilters, setShowFilters] = React.useState(!!initialDateFilter)
 
   // Track starred status locally for optimistic UI updates
   const [starredArticles, setStarredArticles] = React.useState<Record<number, boolean>>(() => {
@@ -596,6 +598,13 @@ export function FilteredArticlesTable({ articles, classification = 'All', showDe
                   </Button>
                 )}
               </div>
+
+              {/* Custom Filters (e.g., classification checkboxes) */}
+              {customFilters && (
+                <div className="mb-4">
+                  {customFilters}
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Source Filter */}

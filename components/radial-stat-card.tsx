@@ -16,6 +16,7 @@ interface RadialStatCardProps {
   icon?: React.ReactNode
   href: string
   className?: string
+  viewLabel?: string
 }
 
 export function RadialStatCard({
@@ -25,7 +26,8 @@ export function RadialStatCard({
   color,
   icon,
   href,
-  className = ""
+  className = "",
+  viewLabel
 }: RadialStatCardProps) {
   const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
 
@@ -39,10 +41,15 @@ export function RadialStatCard({
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{percentage}% of total</p>
         </CardHeader>
-        <CardContent className="pt-0 pb-0">
+        <CardContent className="pt-0 pb-2 relative pr-6">
           <span className="text-4xl font-bold tabular-nums">
             {value.toLocaleString()}
           </span>
+          {viewLabel && (
+            <span className="absolute bottom-2 right-6 text-xs text-muted-foreground">
+              {viewLabel}
+            </span>
+          )}
         </CardContent>
       </Card>
     </Link>

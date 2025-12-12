@@ -17,8 +17,9 @@ import { auth } from '@/auth'
 /**
  * GET /api/stats
  * Returns statistics for the logged-in user's organization only
+ * Supports optional date parameter for filtering by specific date
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     // Get the logged-in user's session
     const session = await auth()
@@ -41,27 +42,57 @@ export async function GET() {
       )
     }
 
-    // SQL query to get counts by classification
-    // MULTI-TENANT: Join with article_classifications and filter by organization_id
-    const sql = `
-      SELECT
-        COUNT(*) as total,
-        COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
-        COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
-        COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
-        COUNT(*) FILTER (WHERE ac.classification IN ('Error: Unknown', '')) as unclassified,
-        COUNT(*) FILTER (WHERE DATE(a.date_published) = CURRENT_DATE) as articles_today,
-        COUNT(*) FILTER (WHERE ac.starred = true) as starred
-      FROM articles a
-      INNER JOIN article_classifications ac
-        ON a.id = ac.article_id
-      WHERE ac.organization_id = $1
-        AND ac.classification != 'OUTDATED'
-        AND ac.status != 'OUTDATED';
-    `
+    // Get date parameter from URL if provided
+    const { searchParams } = new URL(request.url)
+    const dateParam = searchParams.get('date')
 
-    // Execute the query with organization_id
-    const result = await query(sql, [organizationId])
+    // Build SQL query with optional date filter
+    let sql: string
+    let params: any[]
+
+    if (dateParam) {
+      // Filter by specific date
+      sql = `
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+          COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+          COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+          COUNT(*) FILTER (WHERE ac.classification IN ('Error: Unknown', '')) as unclassified,
+          COUNT(*) FILTER (WHERE DATE(a.date_published) = CURRENT_DATE) as articles_today,
+          COUNT(*) FILTER (WHERE ac.starred = true) as starred
+        FROM articles a
+        INNER JOIN article_classifications ac
+          ON a.id = ac.article_id
+        WHERE ac.organization_id = $1
+          AND ac.classification != 'OUTDATED'
+          AND ac.status != 'OUTDATED'
+          AND DATE(a.date_published) = $2;
+      `
+      params = [organizationId, dateParam]
+    } else {
+      // Return all stats (no date filter)
+      sql = `
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE ac.classification = 'Threat') as threats,
+          COUNT(*) FILTER (WHERE ac.classification = 'Opportunity') as opportunities,
+          COUNT(*) FILTER (WHERE ac.classification = 'Neutral') as neutral,
+          COUNT(*) FILTER (WHERE ac.classification IN ('Error: Unknown', '')) as unclassified,
+          COUNT(*) FILTER (WHERE DATE(a.date_published) = CURRENT_DATE) as articles_today,
+          COUNT(*) FILTER (WHERE ac.starred = true) as starred
+        FROM articles a
+        INNER JOIN article_classifications ac
+          ON a.id = ac.article_id
+        WHERE ac.organization_id = $1
+          AND ac.classification != 'OUTDATED'
+          AND ac.status != 'OUTDATED';
+      `
+      params = [organizationId]
+    }
+
+    // Execute the query with parameters
+    const result = await query(sql, params)
 
     // Get the first row (there's only one row with the counts)
     const stats = result.rows[0]

@@ -52,7 +52,7 @@ export function getPool(): Pool {
     // Optional: configure connection pool
     max: 20, // Maximum number of connections in pool
     idleTimeoutMillis: 30000, // Close idle connections after 30 seconds
-    connectionTimeoutMillis: 2000, // Timeout after 2 seconds if no connection available
+    connectionTimeoutMillis: 10000, // Timeout after 10 seconds if no connection available
     // SSL configuration for production databases (required for most hosted Postgres)
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
   })

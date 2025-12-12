@@ -76,6 +76,7 @@ async function getStarredArticles(): Promise<Article[]> {
       explanation: row.explanation,
       reasoning: row.reasoning,
       advice: row.advice,
+      classification_summary: row.classification_summary || null,
       date_published: row.date_published,
       classification_date: row.classification_date,
       status: row.status,

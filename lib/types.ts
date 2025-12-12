@@ -55,6 +55,7 @@ export interface Article {
   explanation: string | null
   reasoning: string | null
   advice: string | null
+  classification_summary: string | null
   date_published: string | null
   classification_date: string | null
   status: string

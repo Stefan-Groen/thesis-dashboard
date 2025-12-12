@@ -3,6 +3,7 @@
  *
  * Displays comprehensive information about a single article including:
  * - Title, published date, classification, criticality score
+ * - Quick summary from article classification
  * - LLM explanation, reasoning, and advice
  * - Rating functionality
  * - PDF download and read full article options
@@ -43,7 +44,7 @@ async function getArticle(id: string): Promise<Article | null> {
     const sql = `
       SELECT
         a.id, a.title, a.link, a.summary, a.source,
-        ac.classification, ac.explanation, ac.reasoning, ac.advice,
+        ac.classification, ac.explanation, ac.reasoning, ac.advice, ac.summary as classification_summary,
         a.date_published, ac.classification_date, ac.status, ac.starred,
         ac.criti_score, ac.criti_explanation, ac.criti_status,
         csd.correctness_factual_soundness,
@@ -87,6 +88,7 @@ async function getArticle(id: string): Promise<Article | null> {
       explanation: row.explanation,
       reasoning: row.reasoning,
       advice: row.advice,
+      classification_summary: row.classification_summary,
       date_published: row.date_published,
       classification_date: row.classification_date,
       status: row.status,
@@ -222,6 +224,18 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
                         </div>
                       </CardContent>
                     </Card>
+
+                    {/* Quick Summary Card */}
+                    {article.classification_summary && (
+                      <Card>
+                        <CardContent className="pt-6">
+                          <h3 className="text-sm font-semibold mb-3">Quick Summary</h3>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {article.classification_summary}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     {/* Classification and Criticality Score Row */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

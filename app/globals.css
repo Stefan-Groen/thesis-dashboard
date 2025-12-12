@@ -424,12 +424,29 @@
 
   border-radius: 1200px;
   background: radial-gradient(
-    50% 50% at 50% 50%, 
-    #00E5FF 0%, 
+    50% 50% at 50% 50%,
+    #00E5FF 0%,
     rgba(255, 0, 168, 0) 100%
   );
 
   filter: blur(200px); /* same as Figma Layer blur */
 
   pointer-events: none;
+}
+
+/* Pulse animation for New Articles card - flashes every 8 seconds */
+@keyframes pulse-slow {
+  0%, 92.5% {
+    opacity: 1;
+  }
+  96.25% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 8s ease-in-out infinite;
 }

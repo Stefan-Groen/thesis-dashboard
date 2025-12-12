@@ -1,7 +1,8 @@
 /**
- * New Threats/Opportunities Page
+ * By Date Articles Page
  *
- * Displays threats and opportunities that the user has NOT yet rated/reviewed
+ * Displays articles published on a specific date with optional classification filter.
+ * URL format: /dashboard/by-date?date=YYYY-MM-DD&classification=Threat|Opportunity|Neutral|Pending
  */
 
 export const dynamic = 'force-dynamic'
@@ -9,16 +10,16 @@ export const dynamic = 'force-dynamic'
 import { query } from "@/lib/db"
 import { auth } from "@/auth"
 import type { Article } from "@/lib/types"
-import { NewPageClient } from "./new-client"
+import { ByDateClient } from "./by-date-client"
 
 /**
- * Fetch unreviewed articles for current user (all classifications)
- * MULTI-TENANT: Filters by organization_id and excludes user ratings
+ * Fetch articles for a specific date
+ * MULTI-TENANT: Filters by organization_id
  */
-async function getNewArticles(): Promise<Article[]> {
+async function getArticlesByDate(date: string): Promise<Article[]> {
   try {
     const session = await auth()
-    if (!session?.user?.organizationId || !session?.user?.id) {
+    if (!session?.user?.organizationId) {
       return []
     }
 
@@ -41,36 +42,23 @@ async function getNewArticles(): Promise<Article[]> {
         csd.clarity_communication_quality_explanation,
         csd.safety_bias_appropriateness_explanation
       FROM articles a
-      INNER JOIN article_classifications ac ON a.id = ac.article_id
       INNER JOIN organizations o ON o.id = $1
-      LEFT JOIN article_ratings ar ON a.id = ar.article_id
-        AND ar.organization_id = $1
-        AND ar.user_id = $2
+      LEFT JOIN article_classifications ac ON a.id = ac.article_id AND ac.organization_id = $1
       LEFT JOIN criticality_scores_detail csd ON ac.id = csd.article_classification_id
-      WHERE ac.organization_id = $1
+      WHERE DATE(a.date_published) = $2
+        AND (ac.classification IS NULL OR ac.classification != 'OUTDATED')
+        AND (ac.status IS NULL OR ac.status != 'OUTDATED')
         AND a.date_published >= o.created_at
-        AND ar.id IS NULL
-      ORDER BY ac.classification_date DESC
-      LIMIT 10000;
+      ORDER BY a.date_published DESC
+      LIMIT 1000;
     `
 
-    const result = await query(sql, [session.user.organizationId, session.user.id])
+    const result = await query(sql, [session.user.organizationId, date])
 
     return result.rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      link: row.link,
-      summary: row.summary,
-      source: row.source,
-      classification: row.classification,
-      explanation: row.explanation,
-      reasoning: row.reasoning,
-      advice: row.advice,
-      classification_summary: row.classification_summary || null,
-      date_published: row.date_published,
-      classification_date: row.classification_date,
-      status: row.status,
-      starred: row.starred,
+      ...row,
+      date_published: row.date_published?.toISOString() || null,
+      classification_date: row.classification_date?.toISOString() || null,
       criti_score: row.criti_score,
       criti_explanation: row.criti_explanation,
       criti_status: row.criti_status,
@@ -94,13 +82,21 @@ async function getNewArticles(): Promise<Article[]> {
           : null,
     }))
   } catch (error) {
-    console.error('Error fetching new articles:', error)
+    console.error('Error fetching articles by date:', error)
     return []
   }
 }
 
-export default async function NewPage() {
-  const articles = await getNewArticles()
+interface PageProps {
+  searchParams: Promise<{ date?: string; classification?: string }>
+}
 
-  return <NewPageClient articles={articles} />
+export default async function ByDatePage({ searchParams }: PageProps) {
+  const params = await searchParams
+  const date = params.date || new Date().toISOString().split('T')[0]
+  const classification = params.classification as 'Threat' | 'Opportunity' | 'Neutral' | 'Pending' | undefined
+
+  const articles = await getArticlesByDate(date)
+
+  return <ByDateClient key={date} articles={articles} initialDate={date} initialClassification={classification} />
 }

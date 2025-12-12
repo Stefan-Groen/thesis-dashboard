@@ -73,6 +73,7 @@ async function getNeutralArticles(): Promise<Article[]> {
       explanation: row.explanation,
       reasoning: row.reasoning,
       advice: row.advice,
+      classification_summary: row.classification_summary || null,
       date_published: row.date_published,
       classification_date: row.classification_date,
       status: row.status,
@@ -105,7 +106,11 @@ async function getNeutralArticles(): Promise<Article[]> {
   }
 }
 
-export default async function NeutralPage() {
+export default async function NeutralPage({
+  searchParams,
+}: {
+  searchParams: { date?: string }
+}) {
   const articles = await getNeutralArticles()
 
   return (
@@ -152,7 +157,7 @@ export default async function NeutralPage() {
 
                 {/* Filtered Table */}
                 <div className="px-4 lg:px-6">
-                  <FilteredArticlesTable articles={articles} classification="Neutral" />
+                  <FilteredArticlesTable articles={articles} classification="Neutral" initialDateFilter={searchParams.date} />
                 </div>
               </div>
             </div>

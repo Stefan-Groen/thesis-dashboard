@@ -98,7 +98,11 @@ async function getBacklogArticles(): Promise<Article[]> {
   }
 }
 
-export default async function BacklogPage() {
+export default async function BacklogPage({
+  searchParams,
+}: {
+  searchParams: { date?: string }
+}) {
   const articles = await getBacklogArticles()
 
   return (
@@ -145,7 +149,7 @@ export default async function BacklogPage() {
 
                 {/* Filtered Table */}
                 <div className="px-4 lg:px-6">
-                  <FilteredArticlesTable articles={articles} classification="Backlog" />
+                  <FilteredArticlesTable articles={articles} classification="Backlog" initialDateFilter={searchParams.date} />
                 </div>
               </div>
             </div>

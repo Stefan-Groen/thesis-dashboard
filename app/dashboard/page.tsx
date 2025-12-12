@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 
 import Link from "next/link"
 import { IconUser, IconUpload, IconStarFilled, IconAlertCircle, IconCalendarEvent, IconNews } from "@tabler/icons-react"
+import { Star, CalendarDays, KeyRound } from "lucide-react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { ActivityLineChart } from "@/components/activity-line-chart"
@@ -27,7 +28,9 @@ import type { Stats, ChartDataPoint, ActivityDataPoint, Metrics } from "@/lib/ty
 import { query } from "@/lib/db"
 import { auth } from "@/auth"
 import { NewSinceLastVisit } from "@/components/new-since-last-visit"
+import { TotalInDatabase } from "@/components/total-in-database"
 import { DashboardContent } from "@/components/dashboard-content"
+import { CollapsibleSection } from "@/components/collapsible-section"
 
 /**
  * Fetch dashboard statistics directly from database
@@ -482,6 +485,29 @@ async function updateLastDashboardVisit() {
 }
 
 /**
+ * Fetch organization creation date
+ * MULTI-TENANT: Filters by organization_id
+ */
+async function getOrganizationCreatedAt(): Promise<Date> {
+  try {
+    const session = await auth()
+    if (!session?.user?.organizationId) {
+      return new Date()
+    }
+
+    const result = await query(
+      `SELECT created_at FROM organizations WHERE id = $1`,
+      [session.user.organizationId]
+    )
+
+    return result.rows[0]?.created_at || new Date()
+  } catch (error) {
+    console.error('Error fetching organization created_at:', error)
+    return new Date()
+  }
+}
+
+/**
  * Main Dashboard Page Component
  */
 export default async function Page() {
@@ -492,7 +518,7 @@ export default async function Page() {
   await updateLastDashboardVisit()
 
   // Fetch all data in parallel for better performance
-  const [stats, todayStats, chartData, activityData, metrics, todayArticles, starredArticles] = await Promise.all([
+  const [stats, todayStats, chartData, activityData, metrics, todayArticles, starredArticles, organizationCreatedAt] = await Promise.all([
     getStats(),
     getTodayStats(),
     getChartData(),
@@ -500,6 +526,7 @@ export default async function Page() {
     getMetrics(),
     getTodayArticles(),
     getStarredArticles(),
+    getOrganizationCreatedAt(),
   ])
 
   return (
@@ -519,200 +546,114 @@ export default async function Page() {
             {/* Max-width container for better layout on large screens */}
             <div className="mx-auto w-full max-w-[1600px]">
               <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-                {/* Row 1: Threats, Opportunities, Neutral, Pending (4 tiles × 2 cols each) */}
-                <DashboardContent stats={stats} todayStats={todayStats} />
+                {/* Section 1: Quick Overview */}
+                <DashboardContent stats={stats} todayStats={todayStats} metrics={metrics} />
 
-                {/* Row 2-3: Both graphs side by side (4 cols each, 2 rows height) */}
-                <div className="px-4 lg:px-6">
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-                    {/* Classification Trends Chart - Left */}
-                    <div>
-                      <ChartAreaInteractive data={chartData} />
-                    </div>
+                {/* Section 2: Database Information */}
+                <CollapsibleSection title="Database Information">
+                  {/* Row 1: Activity chart (6 cols, 2 rows) + Total in Database (2 cols, 2 rows) */}
+                  <div className="px-4 lg:px-6">
+                    <div className="grid gap-4 grid-cols-1 lg:grid-cols-8">
+                      {/* Activity Line Chart - 6 cols wide, 2 rows height */}
+                      <div className="lg:col-span-6 lg:row-span-2">
+                        <ActivityLineChart data={activityData} />
+                      </div>
 
-                    {/* Activity Line Chart - Right */}
-                    <div>
-                      <ActivityLineChart data={activityData} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Row 3-4: Articles Added Today tile (2 cols) + Table (6 cols, 2 rows) */}
-                <div className="px-4 lg:px-6">
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-8">
-                    {/* Articles Added Today tile - 2 cols wide, 1 row height */}
-                    <Link href="/dashboard/today" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
-                        <div className="absolute top-4 left-4 z-10">
-                          <div className="flex items-center gap-2 mb-2">
-                            <IconCalendarEvent className="size-5 text-primary" />
-                            <Badge variant="outline" className="text-xs">
-                              Today
-                            </Badge>
-                          </div>
-                          <CardTitle className="text-lg font-semibold mb-1">Articles Added Today</CardTitle>
-                          <CardDescription className="text-xs">Published today</CardDescription>
-                        </div>
-                        <div className="absolute bottom-2 right-4 opacity-90">
-                          <span className="text-7xl font-black tabular-nums text-foreground/20">
-                            {stats.articlesToday.toLocaleString()}
-                          </span>
-                        </div>
-                      </Card>
-                    </Link>
-
-                    {/* Articles Today Table - 6 cols wide, spans rows 3-4 */}
-                    <div className="lg:col-span-6 lg:row-span-2">
-                      <Card className="h-full flex flex-col">
-                        <CardHeader className="pb-3">
-                          <CardTitle>New Articles of Today</CardTitle>
-                          <CardDescription>Articles published today</CardDescription>
-                        </CardHeader>
-                        <div className="flex-1 px-4 pb-4 overflow-hidden">
-                          <DashboardMiniTable
-                            articles={todayArticles}
-                            limit={5}
-                            viewAllHref="/dashboard/today"
-                          />
-                        </div>
-                      </Card>
-                    </div>
-
-                    {/* Total Articles tile - 2 cols wide, row 4 */}
-                    <Link href="/dashboard/articles" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
-                        <div className="absolute top-4 left-4 z-10">
-                          <div className="flex items-center gap-2 mb-2">
-                            <IconNews className="size-5 text-primary" />
-                            <Badge variant="outline" className="text-xs">
-                              All Time
-                            </Badge>
-                          </div>
-                          <CardTitle className="text-lg font-semibold mb-1">Total Articles</CardTitle>
-                          <CardDescription className="text-xs">All articles in database</CardDescription>
-                        </div>
-                        <div className="absolute bottom-2 right-4 opacity-90">
-                          <span className="text-7xl font-black tabular-nums text-foreground/20">
-                            {stats.total.toLocaleString()}
-                          </span>
-                        </div>
-                      </Card>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Row 5-6: Starred Articles table (4 cols, 2 rows) + Own Articles + Upload tiles (2 cols each) */}
-                <div className="px-4 lg:px-6">
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-8">
-                    {/* Starred Articles table - 4 cols wide, spans rows 5-6 */}
-                    <div className="lg:col-span-4 lg:row-span-2">
-                      <Card className="h-full flex flex-col">
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center gap-2">
-                            <IconStarFilled className="size-5 text-yellow-600 dark:text-yellow-400" />
-                            <CardTitle>Starred Articles</CardTitle>
-                          </div>
-                          <CardDescription>Your starred articles ({stats.starred})</CardDescription>
-                        </CardHeader>
-                        <div className="flex-1 px-4 pb-4 overflow-hidden">
-                          <DashboardMiniTable
-                            articles={starredArticles}
-                            limit={5}
-                            viewAllHref="/dashboard/starred"
-                          />
-                        </div>
-                      </Card>
-                    </div>
-
-                    {/* Own Articles tile - 2 cols wide, row 5 */}
-                    <Link href="/dashboard/user_uploaded" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
-                        <div className="absolute top-4 left-4 z-10">
-                          <div className="flex items-center gap-2 mb-2">
-                            <IconUser className="size-8 text-purple-600" />
-                            <Badge variant="outline" className="text-xs">
-                              Your Content
-                            </Badge>
-                          </div>
-                          <CardTitle className="text-lg font-semibold mb-1">Own Articles</CardTitle>
-                          <CardDescription className="text-xs">Articles added by you</CardDescription>
-                        </div>
-                        <div className="absolute bottom-2 right-4 opacity-90">
-                          <span className="text-7xl font-black tabular-nums text-foreground/20">
-                            {metrics.ownArticles.toLocaleString()}
-                          </span>
-                        </div>
-                      </Card>
-                    </Link>
-
-                    {/* Upload Article tile - 2 cols wide, row 5 */}
-                    <Link href="/dashboard/upload" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px] flex items-center justify-center">
-                        <CardHeader className="flex flex-col items-center justify-center text-center">
-                          <IconUpload className="size-12 text-muted-foreground mb-2" />
-                          <CardTitle className="text-lg">Upload Article</CardTitle>
-                          <CardDescription className="text-xs">Add your own article</CardDescription>
-                        </CardHeader>
-                      </Card>
-                    </Link>
-
-                    {/* Reviewed T/O tile - 2 cols wide, row 6 */}
-                    <Link href="/dashboard/reviewed" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
-                        <div className="absolute top-4 left-4 z-10">
-                          <div className="flex items-center gap-2 mb-2">
-                            <IconStarFilled className="size-5 text-yellow-600 dark:text-yellow-400" />
-                            <Badge variant="outline" className="text-xs text-yellow-600 dark:text-yellow-400">
-                              Reviewed
-                            </Badge>
-                          </div>
-                          <CardTitle className="text-lg font-semibold mb-1">Reviewed T/O</CardTitle>
-                          <CardDescription className="text-xs">Articles you have rated</CardDescription>
-                        </div>
-                        <div className="absolute bottom-2 right-4 opacity-90">
-                          <span className="text-7xl font-black tabular-nums text-foreground/20">
-                            {metrics.reviewedThreatsOpps.toLocaleString()}
-                          </span>
-                        </div>
-                      </Card>
-                    </Link>
-
-                    {/* New T/O tile - 2 cols wide, row 6 */}
-                    <Link href="/dashboard/new" className="lg:col-span-2">
-                      <Card className="cursor-pointer transition-all hover:bg-muted/50 h-full overflow-hidden relative min-h-[140px]">
-                        <div className="absolute top-4 left-4 z-10">
-                          <div className="flex items-center gap-2 mb-2">
-                            <IconAlertCircle className="size-5 text-orange-600 dark:text-orange-400" />
-                            <Badge variant="outline" className="text-xs text-orange-600 dark:text-orange-400">
-                              New
-                            </Badge>
-                          </div>
-                          <CardTitle className="text-lg font-semibold mb-1">New T/O</CardTitle>
-                          <CardDescription className="text-xs">Awaiting your feedback</CardDescription>
-                        </div>
-                        <div className="absolute bottom-2 right-4 opacity-90">
-                          <span className="text-7xl font-black tabular-nums text-foreground/20">
-                            {metrics.newThreatsOpps.toLocaleString()}
-                          </span>
-                        </div>
-                      </Card>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Row 7: New Since Last Visit - 2 cols wide, 2 rows tall */}
-                <div className="px-4 lg:px-6">
-                  <div className="grid gap-4 grid-cols-1 lg:grid-cols-8">
-                    <div className="lg:col-span-2 lg:row-span-2">
-                      <NewSinceLastVisit
-                        threats={newSinceLastVisit.threats}
-                        opportunities={newSinceLastVisit.opportunities}
-                        neutral={newSinceLastVisit.neutral}
-                        unclassified={newSinceLastVisit.unclassified}
-                      />
+                      {/* Total in Database - 2 cols wide, 2 rows height */}
+                      <div className="lg:col-span-2 lg:row-span-2">
+                        <TotalInDatabase
+                          threats={stats.threats}
+                          opportunities={stats.opportunities}
+                          neutral={stats.neutral}
+                          unclassified={stats.unclassified}
+                          organizationCreatedAt={organizationCreatedAt}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
+
+                  {/* Row 2: 4 Cards - Starred, Today's, Own, Upload (2 cols each) */}
+                  <div className="px-4 lg:px-6">
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                      {/* Starred Articles tile */}
+                      <Link href="/dashboard/starred">
+                        <Card className="cursor-pointer transition-all hover:bg-muted/50 pt-4 pb-4 h-full">
+                          <CardHeader className="pb-0 pt-0">
+                            <div className="flex items-center gap-2">
+                              <Star className="size-5 text-yellow-600 dark:text-yellow-400" strokeWidth={2} fill="none" />
+                              <CardTitle className="text-lg">Starred Articles</CardTitle>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">Your saved articles</p>
+                          </CardHeader>
+                          <div className="pt-0 pb-0 px-6">
+                            <span className="text-4xl font-bold tabular-nums">
+                              {stats.starred.toLocaleString()}
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+
+                      {/* Today's Articles tile */}
+                      <Link href="/dashboard/today">
+                        <Card className="cursor-pointer transition-all hover:bg-muted/50 pt-4 pb-4 h-full">
+                          <CardHeader className="pb-0 pt-0">
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="size-5" style={{ color: "#F25857" }} />
+                              <CardTitle className="text-lg">Today's Articles</CardTitle>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">All articles of today</p>
+                          </CardHeader>
+                          <div className="pt-0 pb-0 px-6">
+                            <span className="text-4xl font-bold tabular-nums">
+                              {stats.articlesToday.toLocaleString()}
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+
+                      {/* Own Articles tile */}
+                      <Link href="/dashboard/user_uploaded">
+                        <Card className="cursor-pointer transition-all hover:bg-muted/50 pt-4 pb-4 h-full">
+                          <CardHeader className="pb-0 pt-0">
+                            <div className="flex items-center gap-2">
+                              <KeyRound className="size-5 text-green-600 dark:text-green-400" />
+                              <CardTitle className="text-lg">Own Articles</CardTitle>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">Articles added by you</p>
+                          </CardHeader>
+                          <div className="pt-0 pb-0 px-6">
+                            <span className="text-4xl font-bold tabular-nums">
+                              {metrics.ownArticles.toLocaleString()}
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+
+                      {/* Upload Article tile */}
+                      <Link href="/dashboard/upload">
+                        <Card className="cursor-pointer transition-all hover:bg-muted/50 pt-4 pb-4 h-full">
+                          <CardHeader className="pb-0 pt-0">
+                            <div className="flex items-center gap-2">
+                              <IconUpload className="size-5 text-muted-foreground" />
+                              <CardTitle className="text-lg">Upload Article</CardTitle>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">Add your own article</p>
+                          </CardHeader>
+                          <div className="pt-0 pb-0 px-6">
+                            <span className="text-4xl font-bold tabular-nums">
+                              +
+                            </span>
+                          </div>
+                        </Card>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Row 3: Classification Trends Chart (full width) */}
+                  <div className="px-4 lg:px-6">
+                    <ChartAreaInteractive data={chartData} />
+                  </div>
+                </CollapsibleSection>
               </div>
             </div>
           </div>

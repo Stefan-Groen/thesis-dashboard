@@ -11,7 +11,7 @@
 "use client"
 
 import * as React from "react"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import type { ChartDataPoint } from "@/lib/types"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -45,11 +45,15 @@ import {
 const chartConfig = {
   threats: {
     label: "Threats",
-    color: "hsl(0, 84%, 60%)", // Red color for threats
+    color: "#ED674C",
   },
   opportunities: {
     label: "Opportunities",
-    color: "hsl(142, 76%, 36%)", // Green color for opportunities
+    color: "#5AE57F",
+  },
+  neutral: {
+    label: "Neutral",
+    color: "#4E79E4",
   },
 } satisfies ChartConfig
 
@@ -59,20 +63,13 @@ interface ChartBarInteractiveProps {
 
 export function ChartAreaInteractive({ data: chartData }: ChartBarInteractiveProps) {
   const isMobile = useIsMobile()
-  const [timeRange, setTimeRange] = React.useState("7d") // Default to 7 days (1 week)
+  const [timeRange, setTimeRange] = React.useState("30d") // Default to 30 days
   const [mounted, setMounted] = React.useState(false)
 
   // Prevent hydration mismatch by only rendering after mount
   React.useEffect(() => {
     setMounted(true)
   }, [])
-
-  // Set initial time range based on screen size
-  React.useEffect(() => {
-    if (isMobile) {
-      setTimeRange("7d")
-    }
-  }, [isMobile])
 
   // Filter data based on selected time range
   const filteredData = React.useMemo(() => {
@@ -174,13 +171,14 @@ export function ChartAreaInteractive({ data: chartData }: ChartBarInteractivePro
             config={chartConfig}
             className="aspect-auto h-[250px] w-full"
           >
-            <BarChart accessibilityLayer data={filteredData}>
-              <CartesianGrid vertical={false} />
+            <BarChart accessibilityLayer data={filteredData} margin={{ top: 10, right: 10, left: 10, bottom: 20 }}>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="date"
                 tickLine={false}
                 tickMargin={10}
                 axisLine={false}
+                tick={{ fontSize: 11 }}
                 tickFormatter={(value) => {
                   const date = new Date(value)
                   return date.toLocaleDateString("en-US", {
@@ -189,30 +187,33 @@ export function ChartAreaInteractive({ data: chartData }: ChartBarInteractivePro
                   })
                 }}
               />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tick={{ fontSize: 12 }}
+              />
               <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    indicator="dashed"
-                    labelFormatter={(value) => {
-                      return new Date(value).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    }}
-                  />
-                }
+                cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
+                content={<ChartTooltipContent />}
               />
               <Bar
                 dataKey="threats"
-                fill="var(--color-threats)"
-                radius={4}
+                stackId="a"
+                fill={chartConfig.threats.color}
+                radius={[0, 0, 0, 0]}
               />
               <Bar
                 dataKey="opportunities"
-                fill="var(--color-opportunities)"
-                radius={4}
+                stackId="a"
+                fill={chartConfig.opportunities.color}
+                radius={[0, 0, 0, 0]}
+              />
+              <Bar
+                dataKey="neutral"
+                stackId="a"
+                fill={chartConfig.neutral.color}
+                radius={[4, 4, 0, 0]}
               />
             </BarChart>
           </ChartContainer>
